@@ -174,12 +174,12 @@
   Checkpoint includes app-db, all registered handlers and all subscriptions.
   "
   []
-  (let [handlers @registrar/kind->id->handler
+  (let [handlers (-> registry :kind->id->handler deref)
         app-db   @db/app-db
-				subs-cache @subs/query->reaction]
+        subs-cache @subs/query->reaction]
     (fn []
-			;; call `dispose!` on all current subscriptions which
-			;; didn't originally exist.
+      ;; call `dispose!` on all current subscriptions which
+      ;; didn't originally exist.
       (let [original-subs (set (vals subs-cache))
             current-subs  (set (vals @subs/query->reaction))]
         (doseq [sub (set/difference current-subs original-subs)]
@@ -188,7 +188,7 @@
       ;; Reset the atoms
       ;; We don't need to reset subs/query->reaction, as
       ;; disposing of the subs removes them from the cache anyway
-      (reset! registrar/kind->id->handler handlers)
+      (reset! (:kind->id->handler registry) handlers)
       (reset! db/app-db app-db)
       nil)))
 
