@@ -2,27 +2,14 @@
   (:require
     [re-frame.db           :refer [app-db]]
     [re-frame.interceptor  :refer [->interceptor]]
-    [re-frame.registrar    :refer [get-handler clear-handlers register-handler]]
+    [re-frame.registry     :as reg]
     [re-frame.loggers      :refer [console]]))
 
 
 ;; -- Registration ------------------------------------------------------------
 
 (def kind :cofx)
-(assert (re-frame.registrar/kinds kind))
-
-(defn reg-cofx
-  "Register the given coeffect `handler` for the given `id`, for later use
-  within `inject-cofx`.
-
-  `id` is keyword, often namespaced.
-  `handler` is a function which takes either one or two arguements, the first of which is
-  always `coeffects` and which returns an updated `coeffects`.
-
-  See the docs for `inject-cofx` for example use."
-  [id handler]
-  (register-handler kind id handler))
-
+(assert (re-frame.registry/kinds kind))
 
 ;; -- Interceptor -------------------------------------------------------------
 
@@ -78,37 +65,34 @@
    Instead, the interceptor created by this function is a way to 'inject'
    'necessary resources' into the `:coeffects` (map) subsequently given
    to the event handler at call time."
-  ([id]
+  ([registry id]
   (->interceptor
     :id      :coeffects
     :before  (fn coeffects-before
                [context]
-               (if-let [handler (get-handler kind id)]
+               (if-let [handler (reg/get-handler registry kind id)]
                  (update context :coeffects handler)
                  (console :error "No cofx handler registered for" id)))))
-  ([id value]
+  ([registry id value]
    (->interceptor
      :id     :coeffects
      :before  (fn coeffects-before
                 [context]
-                (if-let [handler (get-handler kind id)]
+                (if-let [handler (reg/get-handler registry kind id)]
                   (update context :coeffects handler value)
                   (console :error "No cofx handler registered for" id))))))
 
 
 ;; -- Builtin CoEffects Handlers  ---------------------------------------------
 
-;; :db
-;;
-;; Adds to coeffects the value in `app-db`, under the key `:db`
-(reg-cofx
-  :db
-  (fn db-coeffects-handler
-    [coeffects]
-    (assoc coeffects :db @app-db)))
-
+(defn register-built-in!
+  [registry]
+  (let [register (partial reg/register-handler registry kind)]
+    (register
+     :db
+     (fn db-coeffects-handler
+       [coeffects]
+       (assoc coeffects :db @app-db)))))
 
 ;; Because this interceptor is used so much, we reify it
-(def inject-db (inject-cofx :db))
-
-
+;; (def inject-db (inject-cofx :db))

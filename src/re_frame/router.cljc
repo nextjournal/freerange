@@ -1,5 +1,5 @@
 (ns re-frame.router
-  (:require [re-frame.events  :refer [handle]]
+  (:require [re-frame.events  :as ev]
             [re-frame.interop :refer [after-render empty-queue next-tick]]
             [re-frame.loggers :refer [console]]
             [re-frame.trace   :as trace :include-macros true]))
@@ -93,7 +93,8 @@
 ;; Concrete implementation of IEventQueue
 (deftype EventQueue [#?(:cljs ^:mutable fsm-state               :clj ^:volatile-mutable fsm-state)
                      #?(:cljs ^:mutable queue                   :clj ^:volatile-mutable queue)
-                     #?(:cljs ^:mutable post-event-callback-fns :clj ^:volatile-mutable post-event-callback-fns)]
+                     #?(:cljs ^:mutable post-event-callback-fns :clj ^:volatile-mutable post-event-callback-fns)
+                     registry]
   IEventQueue
 
   ;; -- API ------------------------------------------------------------------
@@ -176,7 +177,7 @@
     [this]
     (let [event-v (peek queue)]
       (try
-        (handle event-v)
+        (ev/handle registry event-v)
         (set! queue (pop queue))
         (-call-post-event-callbacks this event-v)
         (catch #?(:cljs :default :clj Exception) ex
@@ -223,7 +224,7 @@
 ;; When "dispatch" is called, the event is added into this event queue.  Later,
 ;;  the queue will "run" and the event will be "handled" by the registered function.
 ;;
-(def event-queue (->EventQueue :idle empty-queue {}))
+;; (def event-queue (->EventQueue :idle empty-queue {}))
 
 
 ;; ---------------------------------------------------------------------------
@@ -240,8 +241,8 @@
   added to the end of a FIFO queue which already contain events.
 
   Usage:
-     (dispatch [:order-pizza {:supreme 2 :meatlovers 1 :veg 1})"
-  [event]
+     (dispatch event-queue [:order-pizza {:supreme 2 :meatlovers 1 :veg 1})"
+  [event-queue event]
   (if (nil? event)
       (throw (ex-info "re-frame: you called \"dispatch\" without an event vector." {}))
       (push event-queue event))
@@ -260,8 +261,8 @@
      3. in a unit test where we don't want the action 'later'
 
   Usage:
-     (dispatch-sync [:sing :falsetto 634])"
-  [event-v]
-  (handle event-v)
+     (dispatch-sync event-queue registry [:sing :falsetto 634])"
+  [event-queue registry event-v]
+  (ev/handle registry event-v)
   (-call-post-event-callbacks event-queue event-v)  ;; slightly ugly hack. Run the registered post event callbacks.
   nil)                                              ;; Ensure nil return. See https://github.com/day8/re-frame/wiki/Beware-Returning-False

@@ -3,7 +3,6 @@
   (:require
     [re-frame.interceptor :refer [->interceptor get-effect get-coeffect assoc-coeffect assoc-effect]]
     [re-frame.loggers :refer [console]]
-    [re-frame.registrar :as registrar]
     [re-frame.db :refer [app-db]]
     [clojure.data :as data]
     [re-frame.cofx :as cofx]

@@ -9,12 +9,12 @@
     [re-frame.router           :as router]
     [re-frame.loggers          :as loggers]
     [re-frame.registrar        :as registrar]
+    [re-frame.registry         :as reg]
     [re-frame.interceptor      :as interceptor]
     [re-frame.std-interceptors :as std-interceptors :refer [db-handler->interceptor
                                                              fx-handler->interceptor
                                                              ctx-handler->interceptor]]
     [clojure.set               :as set]))
-
 
 ;; -- API ---------------------------------------------------------------------
 ;;
@@ -35,38 +35,43 @@
 ;; to the docs.
 ;;
 
+;; -- state
+(def registry (reg/make-registry))
+(def ev-queue (router/->EventQueue :idle interop/empty-queue {} registry))
 
-;; -- dispatch ----------------------------------------------------------------
-(def dispatch       router/dispatch)
-(def dispatch-sync  router/dispatch-sync)
-
+;; --  dispatch
+(def dispatch         (partial router/dispatch ev-queue))
+(def dispatch-sync    (partial router/dispatch-sync ev-queue registry))
 
 ;; -- subscriptions -----------------------------------------------------------
-(def reg-sub        subs/reg-sub)
-(def subscribe      subs/subscribe)
-
-(def clear-sub (partial registrar/clear-handlers subs/kind))  ;; think unreg-sub
-(def clear-subscription-cache! subs/clear-subscription-cache!)
-
 (defn reg-sub-raw
   "This is a low level, advanced function.  You should probably be
   using reg-sub instead.
   Docs in https://github.com/day8/re-frame/blob/master/docs/SubscriptionFlow.md"
   [query-id handler-fn]
-  (registrar/register-handler subs/kind query-id handler-fn))
+  (reg/register-handler registry subs/kind query-id handler-fn))
 
+(def reg-sub      (partial subs/reg-sub registry))
+(def subscribe    (partial subs/subscribe registry))
 
-;; -- effects -----------------------------------------------------------------
-(def reg-fx      fx/reg-fx)
-(def clear-fx    (partial registrar/clear-handlers fx/kind))  ;; think unreg-fx
+(def clear-sub    (partial reg/clear-handlers registry subs/kind))
+(def clear-subscription-cache! subs/clear-subscription-cache!)
 
-;; -- coeffects ---------------------------------------------------------------
-(def reg-cofx    cofx/reg-cofx)
-(def inject-cofx cofx/inject-cofx)
-(def clear-cofx (partial registrar/clear-handlers cofx/kind)) ;; think unreg-cofx
+;; -- effects
+(def reg-fx      (partial reg/register-handler registry fx/kind))
+(def clear-fx    (partial reg/clear-handlers registry fx/kind))
+(def fx-do-fx    (fx/do-fx registry))
+(fx/register-built-in! registry ev-queue)
 
+;; -- coeffects
+(def reg-cofx    (partial reg/register-handler registry cofx/kind))
+(def inject-cofx (partial cofx/inject-cofx registry))
+(def clear-cofx  (partial reg/clear-handlers registry cofx/kind))
+(def cofx-inject-db (cofx/inject-cofx registry :db))
+(cofx/register-built-in! registry)
 
 ;; -- Events ------------------------------------------------------------------
+(def clear-event (partial reg/clear-handlers registry events/kind))
 
 (defn reg-event-db
   "Register the given event `handler` (function) for the given `id`. Optionally, provide
@@ -78,11 +83,10 @@
    chain, so that, in the end, only a chain is registered.
    Special effects and coeffects interceptors are added to the front of this
    chain."
-  ([id handler]
-    (reg-event-db id nil handler))
-  ([id interceptors handler]
-   (events/register id [cofx/inject-db fx/do-fx interceptors (db-handler->interceptor handler)])))
-
+  ([id db-handler]
+    (reg-event-db id nil db-handler))
+  ([id interceptors db-handler]
+   (events/register registry id [cofx-inject-db fx-do-fx interceptors (db-handler->interceptor db-handler)])))
 
 (defn reg-event-fx
   "Register the given event `handler` (function) for the given `id`. Optionally, provide
@@ -95,11 +99,10 @@
    Special effects and coeffects interceptors are added to the front of the
    interceptor chain.  These interceptors inject the value of app-db into coeffects,
    and, later, action effects."
-  ([id handler]
-   (reg-event-fx id nil handler))
-  ([id interceptors handler]
-   (events/register id [cofx/inject-db fx/do-fx interceptors (fx-handler->interceptor handler)])))
-
+  ([id fx-handler]
+   (reg-event-fx id nil fx-handler))
+  ([id interceptors fx-handler]
+   (events/register registry id [cofx-inject-db fx-do-fx interceptors (fx-handler->interceptor fx-handler)])))
 
 (defn reg-event-ctx
   "Register the given event `handler` (function) for the given `id`. Optionally, provide
@@ -111,9 +114,7 @@
   ([id handler]
    (reg-event-ctx id nil handler))
   ([id interceptors handler]
-   (events/register id [cofx/inject-db fx/do-fx interceptors (ctx-handler->interceptor handler)])))
-
-(def clear-event (partial registrar/clear-handlers events/kind)) ;; think unreg-event-*
+   (events/register registry id [cofx-inject-db fx-do-fx interceptors (ctx-handler->interceptor handler)])))
 
 ;; -- interceptors ------------------------------------------------------------
 
@@ -216,12 +217,12 @@
   ([f]
    (add-post-event-callback f f))   ;; use f as its own identifier
   ([id f]
-   (router/add-post-event-callback re-frame.router/event-queue id f)))
+   (router/add-post-event-callback ev-queue id f)))
 
 
 (defn remove-post-event-callback
   [id]
-  (router/remove-post-event-callback re-frame.router/event-queue id))
+  (router/remove-post-event-callback ev-queue id))
 
 
 ;; --  Deprecation ------------------------------------------------------------
