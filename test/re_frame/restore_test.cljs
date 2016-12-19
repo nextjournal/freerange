@@ -1,11 +1,11 @@
 (ns re-frame.restore-test
   (:require [cljs.test :refer-macros [is deftest async use-fixtures testing]]
-            [re-frame.core :refer [make-restore-fn reg-sub subscribe]]
+            [re-frame.core :as core :refer [make-restore-fn reg-sub subscribe]]
             [re-frame.subs :as subs]))
 
 ;; TODO: future tests in this area could check DB state and registrations are being correctly restored.
 
-(use-fixtures :each {:before subs/clear-all-handlers!})
+(use-fixtures :each {:before (partial subs/clear-all-handlers! core/registry)})
 
 (defn one? [x] (= 1 x))
 (defn two? [x] (= 2 x))
