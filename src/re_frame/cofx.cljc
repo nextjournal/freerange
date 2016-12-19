@@ -86,7 +86,7 @@
 ;; -- Builtin CoEffects Handlers  ---------------------------------------------
 
 (defn register-built-in!
-  [registry]
+  [{:keys [app-db registry] :as frame}]
   (let [register (partial reg/register-handler registry kind)]
     (register
      :db
