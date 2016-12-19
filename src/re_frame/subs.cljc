@@ -113,7 +113,7 @@
 
   XXX
   "
-  ([registry query-v]
+  ([{:keys [registry app-db]} query-v]
    (trace/with-trace {:operation (first-in-vector query-v)
                       :op-type   :sub/create
                       :tags      {:query-v query}}
@@ -131,7 +131,7 @@
                (console :error (str "re-frame: no subscription handler registered for: " query-id ". Returning a nil subscription.")))
            (cache-and-return query [] (handler-fn app-db query)))))))
 
-  ([registry query dynv]
+  ([{:keys [registry app-db]} query dynv]
    (trace/with-trace {:operation (first-in-vector query)
                       :op-type   :sub/create
                       :tags      {:query-v query
@@ -326,7 +326,7 @@
   For further understanding, read `/docs`, and look at the detailed comments in
   /examples/todomvc/src/subs.cljs
   "
-  [registry query-id & args]
+  [{:keys [registry app-db] :as frame} query-id & args]
   (let [computation-fn (last args)
         input-args     (butlast args) ;; may be empty, or one signal fn, or pairs of  :<- / vector
         err-header     (str "re-frame: reg-sub for " query-id ", ")
@@ -347,8 +347,8 @@
                              (when-not (= :<- marker)
                                (console :error err-header "expected :<-, got:" marker))
                              (fn inp-fn
-                               ([_] (subscribe registry vec))
-                               ([_ _] (subscribe registry vec))))
+                               ([_] (subscribe frame (second input-args)))
+                               ([_ _] (subscribe frame (second input-args)))))
 
                          ;; multiple sugar pairs
                          (let [pairs   (partition 2 input-args)
@@ -357,8 +357,8 @@
                            (when-not (and (every? #{:<-} markers) (every? vector? vecs))
                              (console :error err-header "expected pairs of :<- and vectors, got:" pairs))
                            (fn inp-fn
-                             ([_] (map (partial subscribe registry) vecs))
-                             ([_ _] (map (partial subscribe registry) vecs)))))]
+                             ([_] (map (partial subscribe frame) vecs))
+                             ([_ _] (map (partial subscribe frame) vecs)))))]
     (reg/register-handler
       registry
       kind

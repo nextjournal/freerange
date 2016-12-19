@@ -5,7 +5,7 @@
 
 ;; TODO: future tests in this area could check DB state and registrations are being correctly restored.
 
-(use-fixtures :each {:before (partial subs/clear-all-handlers! core/registry)})
+(use-fixtures :each {:before (partial subs/clear-all-handlers! (:registry core/the-frame))})
 
 (defn one? [x] (= 1 x))
 (defn two? [x] (= 2 x))
