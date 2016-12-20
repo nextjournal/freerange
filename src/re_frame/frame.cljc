@@ -47,7 +47,7 @@
     [this id interceptors handler]))
 
 ;; connect all the pieces of state ----
-(defrecord Frame [registry event-queue app-db subs-cache]
+(defrecord Frame [registry event-queue app-db subs-cache default-interceptors]
   IFrame
   ;; dispatch ----
   (dispatch [this event-v]
@@ -95,18 +95,18 @@
     (events/register
      registry
      id
-     [(cofx/inject-cofx registry :db) (fx/do-fx registry) interceptors (stdi/db-handler->interceptor db-handler)]))
+     [default-interceptors interceptors (stdi/db-handler->interceptor db-handler)]))
   (reg-event-fx [this id fx-handler]
     (reg-event-fx this id nil fx-handler))
   (reg-event-fx [this id interceptors fx-handler]
     (events/register
      registry
      id
-     [(cofx/inject-cofx registry :db) (fx/do-fx registry) interceptors (stdi/fx-handler->interceptor fx-handler)]))
+     [default-interceptors interceptors (stdi/fx-handler->interceptor fx-handler)]))
   (reg-event-ctx [this id handler]
     (reg-event-ctx this id nil handler))
   (reg-event-ctx [this id interceptors handler]
     (events/register
      registry
      id
-     [(cofx/inject-cofx registry :db) (fx/do-fx registry) interceptors (stdi/ctx-handler->interceptor handler)])))
+     [default-interceptors interceptors (stdi/ctx-handler->interceptor handler)])))

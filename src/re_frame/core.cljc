@@ -66,7 +66,8 @@
      {:registry registry
       :event-queue event-queue
       :app-db re-frame.db/app-db
-      :subs-cache subs-cache})))
+      :subs-cache subs-cache
+      :default-interceptors [(cofx/inject-cofx registry :db) (fx/do-fx registry)]})))
 
 (def the-frame (make-frame))
 
