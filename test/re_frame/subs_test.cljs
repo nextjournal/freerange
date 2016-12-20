@@ -21,7 +21,7 @@
 
 (test/use-fixtures :each {:before (fn []
                                     (reset! frame (re-frame/make-frame))
-                                    (subs/clear-all-handlers! (:registry @frame)))})
+                                    (subs/clear-all-handlers! @frame))})
 
 ;;=====test basic subscriptions  ======
 
