@@ -15,7 +15,53 @@
 ;; De-duplicate subscriptions. If two or more equal subscriptions
 ;; are concurrently active, we want only one handler running.
 ;; Two subscriptions are "equal" if their query vectors test "=".
-(def query->reaction (atom {}))
+
+(defprotocol ICache
+  ;; Using -prefixed methods here because for some reason when removing the dash I get
+  ;;
+  ;; java.lang.ClassFormatError: Duplicate method name&signature in class file re_frame/subs/SubscriptionCache
+  ;;
+  ;; as far as I understand that would happen when you try to implement two identically
+  ;; named functions in one defrecord call but I don't see how I'm doing that here
+  (-clear [this])
+  (-cache-and-return [this query-v dyn-v r])
+  (-cache-lookup
+    [this query-v]
+    [this query-v dyn-v]))
+
+(defrecord SubscriptionCache [state]
+  #?(:cljs IDeref :clj clojure.lang.IDeref)
+  #?(:cljs (-deref [this] (-> this :state deref))
+     :clj (deref [this] (-> this :state deref)))
+  ICache
+  (-clear [this]
+    (doseq [[k rxn] @state]
+      (dispose! rxn))
+    (if (not-empty @state)
+      (console :warn "Subscription cache should be empty after clearing it.")))
+  (-cache-and-return [this query-v dyn-v r]
+    (let [cache-key [query-v dyn-v]]
+      ;; when this reaction is no longer being used, remove it from the cache
+      (add-on-dispose! r #(do (swap! state dissoc cache-key)
+                              (trace/with-trace {:operation (first-in-vector query-v)
+                                                 :op-type   :sub/dispose
+                                                 :tags      {:query-v  query-v
+                                                             :reaction (reagent-id r)}}
+                                nil)))
+      ;; cache this reaction, so it can be used to deduplicate other, later "=" subscriptions
+      (swap! state assoc cache-key r)
+      (trace/merge-trace! {:tags {:reaction (reagent-id r)}})
+      r))
+  (-cache-lookup [this query-v]
+    (-cache-lookup this query-v []))
+  (-cache-lookup [this query-v dyn-v]
+    (get @state [query-v dyn-v])))
+
+(defn clear-all-handlers!
+  "Unregisters all existing subscription handlers and clears the subscription cache"
+  [{:keys [registry subs-cache]}]
+  (reg/clear-handlers registry kind)
+  (-clear subs-cache))
 
 (defn clear-subscription-cache!
   "Causes all subscriptions to be removed from the cache.
@@ -27,49 +73,13 @@
   after a React exception, because React components won't have been
   cleaned up properly. And this, in turn, means the subscriptions within those
   components won't have been cleaned up correctly. So this forces the issue."
-  []
-  (doseq [[k rxn] @query->reaction]
+  [subs-cache]
+  (doseq [[k rxn] @subs-cache]
     (dispose! rxn))
-  (if (not-empty @query->reaction)
+  (if (not-empty @subs-cache)
     (console :warn "Subscription cache should be empty after clearing it.")))
 
-(defn clear-all-handlers!
-  "Unregisters all existing subscription handlers"
-  [registry]
-  (reg/clear-handlers registry kind)
-  (clear-subscription-cache!))
-
-(defn cache-and-return
-  "cache the reaction r"
-  [query-v dynv r]
-  (let [cache-key [query-v dynv]]
-    ;; when this reaction is no longer being used, remove it from the cache
-    (add-on-dispose! r #(trace/with-trace {:operation (first-in-vector query-v)
-                                           :op-type   :sub/dispose
-                                           :tags      {:query-v  query-v
-                                                       :reaction (reagent-id r)}}
-                                          (swap! query->reaction
-                                                 (fn [query-cache]
-                                                   (if (and (contains? query-cache cache-key) (identical? r (get query-cache cache-key)))
-                                                     (dissoc query-cache cache-key)
-                                                     query-cache)))))
-    ;; cache this reaction, so it can be used to deduplicate other, later "=" subscriptions
-    (swap! query->reaction (fn [query-cache]
-                             (when debug-enabled?
-                               (when (contains? query-cache cache-key)
-                                 (console :warn "re-frame: Adding a new subscription to the cache while there is an existing subscription in the cache" cache-key)))
-                             (assoc query-cache cache-key r)))
-    (trace/merge-trace! {:tags {:reaction (reagent-id r)}})
-    r)) ;; return the actual reaction
-
-(defn cache-lookup
-  ([query-v]
-   (cache-lookup query-v []))
-  ([query-v dyn-v]
-   (get @query->reaction [query-v dyn-v])))
-
-
-;; -- subscribe ---------------------------------------------------------------
+;; -- subscribe -----------------------------------------------------
 
 (defn subscribe
   "Given a `query`, returns a Reagent `reaction` which, over
@@ -113,11 +123,11 @@
 
   XXX
   "
-  ([{:keys [registry app-db]} query-v]
-   (trace/with-trace {:operation (first-in-vector query-v)
+  ([{:keys [registry app-db subs-cache]} query]
+   (trace/with-trace {:operation (first-in-vector query)
                       :op-type   :sub/create
                       :tags      {:query-v query}}
-     (if-let [cached (cache-lookup query)]
+     (if-let [cached (-cache-lookup subs-cache query)]
        (do
          (trace/merge-trace! {:tags {:cached?  true
                                      :reaction (reagent-id cached)}})
@@ -129,14 +139,14 @@
          (if (nil? handler-fn)
            (do (trace/merge-trace! {:error true})
                (console :error (str "re-frame: no subscription handler registered for: " query-id ". Returning a nil subscription.")))
-           (cache-and-return query [] (handler-fn app-db query)))))))
+           (-cache-and-return subs-cache query [] (handler-fn app-db query)))))))
 
-  ([{:keys [registry app-db]} query dynv]
+  ([{:keys [registry app-db subs-cache]} query dynv]
    (trace/with-trace {:operation (first-in-vector query)
                       :op-type   :sub/create
                       :tags      {:query-v query
                                   :dyn-v   dynv}}
-     (if-let [cached (cache-lookup query dynv)]
+     (if-let [cached (-cache-lookup subs-cache query dynv)]
        (do
          (trace/merge-trace! {:tags {:cached?  true
                                      :reaction (reagent-id cached)}})
@@ -154,8 +164,8 @@
                  sub      (make-reaction (fn [] (handler-fn app-db query @dyn-vals)))]
              ;; handler-fn returns a reaction which is then wrapped in the sub reaction
              ;; need to double deref it to get to the actual value.
-             ;; (console :log "Subscription created: " query dynv)
-             (cache-and-return query dynv (make-reaction (fn [] @@sub))))))))))
+             ;; (console :log "Subscription created: " v dynv)
+             (-cache-and-return subs-cache query dynv (make-reaction (fn [] @@sub))))))))))
 
 ;; -- reg-sub -----------------------------------------------------------------
 

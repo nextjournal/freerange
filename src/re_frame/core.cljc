@@ -60,12 +60,13 @@
 
 (defn make-frame []
   (let [registry    (reg/make-registry)
-        event-queue (router/->EventQueue :idle interop/empty-queue {} registry)]
+        event-queue (router/->EventQueue :idle interop/empty-queue {} registry)
+        subs-cache  (subs/->SubscriptionCache (atom {}))]
     (frame/map->Frame
      {:registry registry
       :event-queue event-queue
       :app-db re-frame.db/app-db
-      :subscriptions-cache nil})))
+      :subs-cache subs-cache})))
 
 (def the-frame (make-frame))
 
@@ -81,7 +82,7 @@
   (frame/reg-sub the-frame query-id args))
 (def subscribe (partial frame/subscribe the-frame))
 (def clear-sub (partial frame/clear-sub the-frame))
-(def clear-subscriptions-cache! (partial frame/clear-subscriptions-cache the-frame))
+(def clear-subscriptions-cache! (partial subs/-clear (:subs-cache the-frame)))
 
 (def reg-fx (partial frame/reg-fx the-frame))
 (def clear-fx (partial frame/clear-fx the-frame))
@@ -121,20 +122,20 @@
   Checkpoint includes app-db, all registered handlers and all subscriptions.
   "
   []
-  (let [handlers (-> the-frame :registry :kind->id->handler deref)
-        app-db   (-> the-frame :app-db deref)
-        subs-cache @subs/query->reaction]
+  (let [handlers   (-> the-frame :registry :kind->id->handler deref)
+        app-db     (-> the-frame :app-db deref)
+        subs-cache (-> the-frame :subs-cache deref)]
     (fn []
       ;; call `dispose!` on all current subscriptions which
       ;; didn't originally exist.
-      (let [original-subs (set (vals subs-cache))
-            current-subs  (set (vals @subs/query->reaction))]
+      (let [original-subs (-> subs-cache vals set)
+            current-subs  (-> the-frame :subs-cache deref vals set)]
         (doseq [sub (set/difference current-subs original-subs)]
           (interop/dispose! sub)))
 
       ;; Reset the atoms
-      ;; We don't need to reset subs/query->reaction, as
-      ;; disposing of the subs removes them from the cache anyway
+      ;; We don't need to reset subs-cache, as disposing of the subs
+      ;; removes them from the cache anyway
       (reset! (-> the-frame :registry :kind->id->handler) handlers)
       (reset! (-> the-frame :app-db) app-db)
       nil)))

@@ -47,7 +47,7 @@
     [this id interceptors handler]))
 
 ;; connect all the pieces of state ----
-(defrecord Frame [registry event-queue app-db subscriptions-cache]
+(defrecord Frame [registry event-queue app-db subs-cache]
   IFrame
   ;; dispatch ----
   (dispatch [this event-v]
@@ -67,7 +67,7 @@
   (clear-sub [this query-id]
     (reg/clear-handlers registry subs/kind query-id))
   (clear-subscriptions-cache [this]
-    (subs/clear-subscription-cache!))
+    (subs/clear-subscription-cache! subs-cache))
 
   ;; fx ----
   (reg-fx [this fx-id handler-fn]
