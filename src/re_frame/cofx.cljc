@@ -1,9 +1,7 @@
 (ns re-frame.cofx
-  (:require
-    [re-frame.db           :refer [app-db]]
-    [re-frame.interceptor  :refer [->interceptor]]
-    [re-frame.registry     :as reg]
-    [re-frame.loggers      :refer [console]]))
+  (:require [re-frame.interceptor :refer [->interceptor]]
+            [re-frame.registry :as reg]
+            [re-frame.loggers :refer [console]]))
 
 
 ;; -- Registration ------------------------------------------------------------
@@ -71,7 +69,7 @@
     :before  (fn coeffects-before
                [context]
                (if-let [handler (reg/get-handler registry kind id)]
-                 (update context :coeffects handler)
+                 (update context :coeffects handler (:frame context))
                  (console :error "No cofx handler registered for" id)))))
   ([registry id value]
    (->interceptor
@@ -79,20 +77,20 @@
      :before  (fn coeffects-before
                 [context]
                 (if-let [handler (reg/get-handler registry kind id)]
-                  (update context :coeffects handler value)
+                  (update context :coeffects handler value (:frame context))
                   (console :error "No cofx handler registered for" id))))))
 
 
 ;; -- Builtin CoEffects Handlers  ---------------------------------------------
 
 (defn register-built-in!
-  [{:keys [app-db registry] :as frame}]
-  (let [register (partial reg/register-handler registry kind)]
-    (register
+  [{:keys [registry]}]
+  (let [reg-cofx (partial reg/register-handler registry kind)]
+    (reg-cofx
      :db
      (fn db-coeffects-handler
-       [coeffects]
-       (assoc coeffects :db @app-db)))))
+       [coeffects frame]
+       (assoc coeffects :db @(:app-db frame))))))
 
 ;; Because this interceptor is used so much, we reify it
 ;; (def inject-db (inject-cofx :db))

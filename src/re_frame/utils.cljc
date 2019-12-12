@@ -1,6 +1,5 @@
 (ns re-frame.utils
-  (:require
-    [re-frame.loggers :refer [console]]))
+  (:require [re-frame.loggers :refer [console]]))
 
 (defn dissoc-in
   "Dissociates an entry from a nested associative structure returning a new

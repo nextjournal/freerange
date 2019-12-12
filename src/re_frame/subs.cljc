@@ -1,11 +1,9 @@
 (ns re-frame.subs
- (:require
-   [re-frame.db        :refer [app-db]]
-   [re-frame.interop   :refer [add-on-dispose! debug-enabled? make-reaction ratom? deref? dispose! reagent-id]]
-   [re-frame.loggers   :refer [console]]
-   [re-frame.utils     :refer [first-in-vector]]
-   [re-frame.registry  :as reg]
-   [re-frame.trace     :as trace :include-macros true]))
+  (:require [re-frame.interop :refer [add-on-dispose! debug-enabled? make-reaction ratom? deref? dispose! reagent-id]]
+            [re-frame.loggers :refer [console]]
+            [re-frame.utils :refer [first-in-vector]]
+            [re-frame.registry :as reg]
+            [re-frame.trace :as trace :include-macros true]))
 
 (def kind :sub)
 (assert (re-frame.registry/kinds kind))
@@ -123,7 +121,7 @@
 
   XXX
   "
-  ([{:keys [registry app-db subs-cache]} query]
+  ([{:keys [registry app-db subs-cache] :as frame} query]
    (trace/with-trace {:operation (first-in-vector query)
                       :op-type   :sub/create
                       :tags      {:query-v query}}
@@ -139,9 +137,9 @@
          (if (nil? handler-fn)
            (do (trace/merge-trace! {:error true})
                (console :error (str "re-frame: no subscription handler registered for: " query-id ". Returning a nil subscription.")))
-           (-cache-and-return subs-cache query [] (handler-fn app-db query)))))))
+           (-cache-and-return subs-cache query [] (handler-fn frame query)))))))
 
-  ([{:keys [registry app-db subs-cache]} query dynv]
+  ([{:keys [registry app-db subs-cache] :as frame} query dynv]
    (trace/with-trace {:operation (first-in-vector query)
                       :op-type   :sub/create
                       :tags      {:query-v query
@@ -161,7 +159,7 @@
            (do (trace/merge-trace! {:error true})
                (console :error (str "re-frame: no subscription handler registered for: " query-id ". Returning a nil subscription.")))
            (let [dyn-vals (make-reaction (fn [] (mapv deref dynv)))
-                 sub      (make-reaction (fn [] (handler-fn app-db query @dyn-vals)))]
+                 sub      (make-reaction (fn [] (handler-fn frame query @dyn-vals)))]
              ;; handler-fn returns a reaction which is then wrapped in the sub reaction
              ;; need to double deref it to get to the actual value.
              ;; (console :log "Subscription created: " v dynv)
@@ -205,6 +203,37 @@
     (trace/merge-trace! {:tags {:input-signals (doall (to-seq (map-signals reagent-id signals)))}})
     dereffed-signals))
 
+(defn inputs-fn [{:keys [app-db] :as frame} query-id input-args]
+  (let [err-header (str "re-frame: reg-sub for " query-id ", ")]
+    (case (count input-args)
+      ;; no `inputs` function provided - give the default
+      0 (fn
+          ([_] app-db)
+          ([_ _] app-db))
+
+      ;; a single `inputs` fn
+      1 (let [f (first input-args)]
+          (when-not (fn? f)
+            (console :error err-header "2nd argument expected to be an inputs function, got:" f))
+          f)
+
+      ;; one sugar pair
+      2 (let [[marker vec] input-args]
+          (when-not (= :<- marker)
+            (console :error err-header "expected :<-, got:" marker))
+          (fn inp-fn
+            ([_] (subscribe frame (second input-args)))
+            ([_ _] (subscribe frame (second input-args)))))
+
+      ;; multiple sugar pairs
+      (let [pairs   (partition 2 input-args)
+            markers (map first pairs)
+            vecs    (map last pairs)]
+        (when-not (and (every? #{:<-} markers) (every? vector? vecs))
+          (console :error err-header "expected pairs of :<- and vectors, got:" pairs))
+        (fn inp-fn
+          ([_] (map (partial subscribe frame) vecs))
+          ([_ _] (map (partial subscribe frame) vecs)))))))
 
 (defn reg-sub
   "For a given `query-id`, register two functions: a `computation` function and an `input signals` function.
@@ -231,7 +260,7 @@
 
   The arguments supplied between the `query-id` and the `computation-function` can vary in 3 ways,
   but whatever is there defines the `input signals` part of the template, controlling what input
- values \"flow into\" the `computation function` gets when it is called.
+  values \"flow into\" the `computation function` gets when it is called.
 
   `reg-sub` can be called in one of three ways, because there are three ways to define the input signals part.
   But note, the 2nd method, in which a `signal-fn` is explicitly supplied, is the most canonical and instructive. The other
@@ -338,70 +367,42 @@
   "
   [{:keys [registry app-db] :as frame} query-id & args]
   (let [computation-fn (last args)
-        input-args     (butlast args) ;; may be empty, or one signal fn, or pairs of  :<- / vector
-        err-header     (str "re-frame: reg-sub for " query-id ", ")
-        inputs-fn      (case (count input-args)
-                         ;; no `inputs` function provided - give the default
-                         0 (fn
-                             ([_] app-db)
-                             ([_ _] app-db))
-
-                         ;; a single `inputs` fn
-                         1 (let [f (first input-args)]
-                             (when-not (fn? f)
-                               (console :error err-header "2nd argument expected to be an inputs function, got:" f))
-                             f)
-
-                         ;; one sugar pair
-                         2 (let [[marker vec] input-args]
-                             (when-not (= :<- marker)
-                               (console :error err-header "expected :<-, got:" marker))
-                             (fn inp-fn
-                               ([_] (subscribe frame (second input-args)))
-                               ([_ _] (subscribe frame (second input-args)))))
-
-                         ;; multiple sugar pairs
-                         (let [pairs   (partition 2 input-args)
-                               markers (map first pairs)
-                               vecs    (map last pairs)]
-                           (when-not (and (every? #{:<-} markers) (every? vector? vecs))
-                             (console :error err-header "expected pairs of :<- and vectors, got:" pairs))
-                           (fn inp-fn
-                             ([_] (map (partial subscribe frame) vecs))
-                             ([_ _] (map (partial subscribe frame) vecs)))))]
+        input-args     (butlast args)] ;; may be empty, or one signal fn, or pairs of  :<- / vector
     (reg/register-handler
-      registry
-      kind
-      query-id
-      (fn subs-handler-fn
-        ([db query-vec]
-         (let [subscriptions (inputs-fn query-vec)
-               reaction-id   (atom nil)
-               reaction      (make-reaction
-                               (fn []
-                                 (trace/with-trace {:operation (first-in-vector query-vec)
-                                                    :op-type   :sub/run
-                                                    :tags      {:query-v    query-vec
-                                                                :reaction   @reaction-id}}
-                                                   (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec)]
-                                                     (trace/merge-trace! {:tags {:value subscription}})
-                                                     subscription))))]
+     registry
+     kind
+     query-id
+     (fn subs-handler-fn
+       ([frame query-vec]
+        (let [inputs-fn     (inputs-fn frame query-id input-args)
+              subscriptions (inputs-fn query-vec)
+              reaction-id   (atom nil)
+              reaction      (make-reaction
+                             (fn []
+                               (trace/with-trace {:operation (first-in-vector query-vec)
+                                                  :op-type   :sub/run
+                                                  :tags      {:query-v    query-vec
+                                                              :reaction   @reaction-id}}
+                                 (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec)]
+                                   (trace/merge-trace! {:tags {:value subscription}})
+                                   subscription))))]
 
-           (reset! reaction-id (reagent-id reaction))
-           reaction))
-        ([db query-vec dyn-vec]
-         (let [subscriptions (inputs-fn query-vec dyn-vec)
-               reaction-id   (atom nil)
-               reaction      (make-reaction
-                               (fn []
-                                 (trace/with-trace {:operation (first-in-vector query-vec)
-                                                    :op-type   :sub/run
-                                                    :tags      {:query-v   query-vec
-                                                                :dyn-v     dyn-vec
-                                                                :reaction  @reaction-id}}
-                                                   (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec dyn-vec)]
-                                                     (trace/merge-trace! {:tags {:value subscription}})
-                                                     subscription))))]
+          (reset! reaction-id (reagent-id reaction))
+          reaction))
+       ([frame query-vec dyn-vec]
+        (let [inputs-fn     (inputs-fn frame query-id input-args)
+              subscriptions (inputs-fn query-vec dyn-vec)
+              reaction-id   (atom nil)
+              reaction      (make-reaction
+                             (fn []
+                               (trace/with-trace {:operation (first-in-vector query-vec)
+                                                  :op-type   :sub/run
+                                                  :tags      {:query-v   query-vec
+                                                              :dyn-v     dyn-vec
+                                                              :reaction  @reaction-id}}
+                                 (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec dyn-vec)]
+                                   (trace/merge-trace! {:tags {:value subscription}})
+                                   subscription))))]
 
-           (reset! reaction-id (reagent-id reaction))
-           reaction))))))
+          (reset! reaction-id (reagent-id reaction))
+          reaction))))))

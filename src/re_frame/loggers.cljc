@@ -1,8 +1,7 @@
 (ns re-frame.loggers
-  (:require
-   [clojure.set :refer [difference]]
-   #?@(:clj [[clojure.string :as str]
-             [clojure.tools.logging :as log]])))
+  (:require [clojure.set :refer [difference]]
+            #?@(:clj [[clojure.string :as str]
+                      [clojure.tools.logging :as log]])))
 
 #?(:clj (defn log [level & args]
           (log/log level (if (= 1 (count args))

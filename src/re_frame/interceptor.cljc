@@ -1,9 +1,8 @@
 (ns re-frame.interceptor
-  (:require
-    [re-frame.loggers :refer [console]]
-    [re-frame.interop :refer [empty-queue debug-enabled?]]
-    [re-frame.trace :as trace :include-macros true]
-    [clojure.set :as set]))
+  (:require [re-frame.loggers :refer [console]]
+            [re-frame.interop :refer [empty-queue debug-enabled?]]
+            [re-frame.trace :as trace :include-macros true]
+            [clojure.set :as set]))
 
 
 (def mandatory-interceptor-keys #{:id :after :before})
@@ -12,7 +11,6 @@
   [m]
   (and (map? m)
        (= mandatory-interceptor-keys (-> m keys set))))
-
 
 (defn ->interceptor
   "Create an interceptor from named arguments"
@@ -123,13 +121,13 @@
 
 (defn- context
   "Create a fresh context"
-  ([event interceptors]
-  (-> {}
-      (assoc-coeffect :event event)
-      (enqueue interceptors)))
-  ([event interceptors db]      ;; only used in tests, probably a hack, remove ?  XXX
-   (-> (context event interceptors)
-       (assoc-coeffect :db db))))
+  ([frame event interceptors]
+   (-> {:frame frame}
+       (assoc-coeffect :event event)
+       (enqueue interceptors)))
+  #_([event interceptors db]      ;; only used in tests, probably a hack, remove ?  XXX
+     (-> (context event interceptors)
+         (assoc-coeffect :db db))))
 
 
 (defn- change-direction
@@ -195,10 +193,10 @@
    of interceptors yet to be processed, and a `:stack` of interceptors
    already done.  In advanced cases, these values can be modified by the
    functions through which the context is threaded."
-  [event-v interceptors]
+  [frame event-v interceptors]
   (trace/merge-trace!
-    {:tags {:interceptors interceptors}})
-  (-> (context event-v interceptors)
+   {:tags {:interceptors interceptors}})
+  (-> (context frame event-v interceptors)
       (invoke-interceptors :before)
       change-direction
       (invoke-interceptors :after)))

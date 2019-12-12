@@ -1,13 +1,12 @@
 (ns re-frame.frame
-  (:require
-    [re-frame.events           :as events]
-    [re-frame.subs             :as subs]
-    [re-frame.events           :as events]
-    [re-frame.fx               :as fx]
-    [re-frame.cofx             :as cofx]
-    [re-frame.router           :as router]
-    [re-frame.registry         :as reg]
-    [re-frame.std-interceptors :as stdi]))
+  (:require [re-frame.cofx :as cofx]
+            [re-frame.events :as events]
+            [re-frame.fx :as fx]
+            [re-frame.interop :as interop]
+            [re-frame.registry :as reg]
+            [re-frame.router :as router]
+            [re-frame.std-interceptors :as stdi]
+            [re-frame.subs :as subs]))
 
 (defprotocol IFrame
   ;; dispatch ----
@@ -53,7 +52,7 @@
   (dispatch [this event-v]
     (router/dispatch event-queue event-v))
   (dispatch-sync [this event-v]
-    (router/dispatch-sync event-queue registry event-v))
+    (router/dispatch-sync this event-v))
 
   ;; subs ----
   (reg-sub-raw [this query-id handler-fn]
@@ -110,3 +109,14 @@
      registry
      id
      [default-interceptors interceptors (stdi/ctx-handler->interceptor handler)])))
+
+(defn make-frame [& [{:keys [registry app-db]}]]
+  (let [registry    (or registry (reg/make-registry))
+        app-db      (or app-db (interop/ratom {}))
+        frame       (map->Frame
+                     {:registry             registry
+                      :app-db               app-db
+                      :subs-cache           (subs/->SubscriptionCache (atom {}))
+                      :default-interceptors [(cofx/inject-cofx registry :db) (fx/do-fx registry)]})
+        event-queue (router/->EventQueue :idle interop/empty-queue {} frame)]
+    (assoc frame :event-queue event-queue)))
