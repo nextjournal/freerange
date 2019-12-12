@@ -1,13 +1,11 @@
 (ns re-frame.fx
-  (:require
-   [re-frame.router      :as router]
-   [re-frame.db          :refer [app-db]]
-   [re-frame.interceptor :refer [->interceptor]]
-   [re-frame.interop     :refer [set-timeout!]]
-   [re-frame.events      :as events]
-   [re-frame.registry    :as reg]
-   [re-frame.loggers     :refer [console]]
-   [re-frame.trace :as trace :include-macros true]))
+  (:require [re-frame.router :as router]
+            [re-frame.interceptor :refer [->interceptor]]
+            [re-frame.interop :refer [set-timeout!]]
+            [re-frame.events :as events]
+            [re-frame.registry :as reg]
+            [re-frame.loggers :refer [console]]
+            [re-frame.trace :as trace :include-macros true]))
 
 ;; -- Registration ------------------------------------------------------------
 
@@ -17,7 +15,7 @@
 ;; -- Interceptor -------------------------------------------------------------
 
 (defn register-built-in!
-  [{:keys [registry app-db event-queue] :as frame}]
+  [{:keys [registry]}]
   (let [reg-fx (partial reg/register-handler registry kind)]
 
     ;; :dispatch-later
@@ -37,11 +35,11 @@
     ;;
     (reg-fx
      :dispatch-later
-     (fn [value]
+     (fn [value {:keys [event-queue]}]
        (doseq [{:keys [ms dispatch] :as effect} (remove nil? value)]
          (if (or (empty? dispatch) (not (number? ms)))
            (console :error "re-frame: ignoring bad :dispatch-later value:" effect)
-           (set-timeout! #(router/dispatch dispatch) ms)))))
+           (set-timeout! #(router/dispatch event-queue dispatch) ms)))))
 
 
     ;; :dispatch
@@ -53,10 +51,10 @@
 
     (reg-fx
      :dispatch
-     (fn [value]
+     (fn [value {:keys [event-queue]}]
        (if-not (vector? value)
          (console :error "re-frame: ignoring bad :dispatch value. Expected a vector, but got:" value)
-         (router/dispatch value))))
+         (router/dispatch event-queue value))))
 
 
     ;; :dispatch-n
@@ -74,10 +72,10 @@
     ;;
     (reg-fx
      :dispatch-n
-     (fn [value]
+     (fn [value {:keys [event-queue]}]
        (if-not (sequential? value)
          (console :error "re-frame: ignoring bad :dispatch-n value. Expected a collection, but got:" value)
-         (doseq [event (remove nil? value)] (router/dispatch event)))))
+         (doseq [event (remove nil? value)] (router/dispatch event-queue event)))))
 
 
     ;; :deregister-event-handler
@@ -92,8 +90,8 @@
     ;;
     (reg-fx
      :deregister-event-handler
-     (fn [value]
-       (let [clear-event (partial clear-handlers events/kind)]
+     (fn [value {:keys [registry]}]
+       (let [clear-event (partial reg/clear-handlers registry events/kind)]
          (if (sequential? value)
            (doseq [event value] (clear-event event))
            (clear-event value)))))
@@ -108,7 +106,7 @@
     ;;
     (reg-fx
      :db
-     (fn [value]
+     (fn [value {:keys [app-db]}]
        (if-not (identical? @app-db value)
          (reset! app-db value))))))
 
@@ -143,6 +141,6 @@
             (trace/with-trace
               {:op-type :event/do-fx}
               (doseq [[effect-key effect-value] (:effects context)]
-                (if-let [effect-fn (reg/get-handler registry kind effect-k true)]
-                  (effect-fn effect-value)
+                (if-let [effect-fn (reg/get-handler registry kind effect-key true)]
+                  (effect-fn effect-value (:frame context))
                   (console :error "re-frame: no handler registered for effect:" effect-key ". Ignoring.")))))))

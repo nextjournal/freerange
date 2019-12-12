@@ -1,8 +1,8 @@
 (ns re-frame.router
-  (:require [re-frame.events  :as ev]
+  (:require [re-frame.events :as ev]
             [re-frame.interop :refer [after-render empty-queue next-tick]]
             [re-frame.loggers :refer [console]]
-            [re-frame.trace   :as trace :include-macros true]))
+            [re-frame.trace :as trace :include-macros true]))
 
 
 ;; -- Router Loop ------------------------------------------------------------
@@ -94,7 +94,7 @@
 (deftype EventQueue [#?(:cljs ^:mutable fsm-state               :clj ^:volatile-mutable fsm-state)
                      #?(:cljs ^:mutable queue                   :clj ^:volatile-mutable queue)
                      #?(:cljs ^:mutable post-event-callback-fns :clj ^:volatile-mutable post-event-callback-fns)
-                     registry]
+                     frame]
   IEventQueue
 
   ;; -- API ------------------------------------------------------------------
@@ -177,7 +177,7 @@
     [this]
     (let [event-v (peek queue)]
       (try
-        (ev/handle registry event-v)
+        (ev/handle frame event-v)
         (set! queue (pop queue))
         (-call-post-event-callbacks this event-v)
         (catch #?(:cljs :default :clj Exception) ex
@@ -262,7 +262,11 @@
 
   Usage:
      (dispatch-sync event-queue registry [:sing :falsetto 634])"
-  [event-queue registry event-v]
-  (ev/handle registry event-v)
-  (-call-post-event-callbacks event-queue event-v)  ;; slightly ugly hack. Run the registered post event callbacks.
-  nil)                                              ;; Ensure nil return. See https://github.com/day8/re-frame/wiki/Beware-Returning-False
+  [frame event-v]
+  (ev/handle frame event-v)
+
+  ;; slightly ugly hack. Run the registered post event callbacks.
+  (-call-post-event-callbacks (:event-queue frame) event-v)
+
+  ;; Ensure nil return. See https://github.com/day8/re-frame/wiki/Beware-Returning-False
+  nil)

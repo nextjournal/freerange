@@ -51,16 +51,15 @@
 
 (defn handle
   "Given an event vector `event-v`, look up the associated interceptor chain, and execute it."
-  [event-v]
-  [registry event-v]
-  (let [event-id  (first-in-vector event-v)]
-    (if-let [interceptors  (reg/get-handler registry kind event-id true)]
+  [{:keys [registry app-db] :as frame} event-v]
+  (let [event-id (first-in-vector event-v)]
+    (if-let [interceptors (reg/get-handler registry kind event-id true)]
       (if *handling*
         (console :error "re-frame: while handling" *handling* ", dispatch-sync was called for" event-v ". You can't call dispatch-sync within an event handler.")
-        (binding [*handling*  event-v]
+        (binding [*handling* event-v]
           (trace/with-trace {:operation event-id
                              :op-type   kind
                              :tags      {:event event-v}}
             (trace/merge-trace! {:tags {:app-db-before @app-db}})
-            (interceptor/execute event-v interceptors)
+            (interceptor/execute frame event-v interceptors)
             (trace/merge-trace! {:tags {:app-db-after @app-db}})))))))

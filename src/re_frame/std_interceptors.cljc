@@ -1,13 +1,11 @@
 (ns re-frame.std-interceptors
   "contains re-frame supplied, standard interceptors"
-  (:require
-    [re-frame.interceptor :refer [->interceptor get-effect get-coeffect assoc-coeffect assoc-effect]]
-    [re-frame.loggers :refer [console]]
-    [re-frame.db :refer [app-db]]
-    [clojure.data :as data]
-    [re-frame.cofx :as cofx]
-    [re-frame.utils :as utils]
-    [re-frame.trace :as trace :include-macros true]))
+  (:require [re-frame.interceptor :refer [->interceptor get-effect get-coeffect assoc-coeffect assoc-effect]]
+            [re-frame.loggers :refer [console]]
+            [clojure.data :as data]
+            [re-frame.cofx :as cofx]
+            [re-frame.utils :as utils]
+            [re-frame.trace :as trace :include-macros true]))
 
 
 (def debug
@@ -135,21 +133,21 @@
      2. call handler-fn giving coeffects
      3. stores the result back into the `:effects`"
   [handler-fn]
-(->interceptor
-  :id     :fx-handler
-  :before (fn fx-handler-before
-            [context]
-            (let [new-context
-                  (trace/with-trace
-                    {:op-type   :event/handler
-                     :operation (get-in context [:coeffects :event])}
-                    (let [{:keys [event] :as coeffects} (:coeffects context)]
-                      (->> (handler-fn coeffects event)
-                           (assoc context :effects))))]
-              (trace/merge-trace!
+  (->interceptor
+   :id     :fx-handler
+   :before (fn fx-handler-before
+             [context]
+             (let [new-context
+                   (trace/with-trace
+                     {:op-type   :event/handler
+                      :operation (get-in context [:coeffects :event])}
+                     (let [{:keys [event] :as coeffects} (:coeffects context)]
+                       (->> (handler-fn coeffects event)
+                            (assoc context :effects))))]
+               (trace/merge-trace!
                 {:tags {:effects   (:effects new-context)
                         :coeffects (:coeffects context)}})
-              new-context))))
+               new-context))))
 
 
 (defn ctx-handler->interceptor

@@ -4,7 +4,6 @@
     [re-frame.subs             :as subs]
     [re-frame.frame            :as frame]
     [re-frame.interop          :as interop]
-    [re-frame.db               :as db]
     [re-frame.fx               :as fx]
     [re-frame.cofx             :as cofx]
     [re-frame.router           :as router]
@@ -58,18 +57,7 @@
 
 ;; Export API wrapping `the-frame` singleton ---
 
-(defn make-frame []
-  (let [registry    (reg/make-registry)
-        event-queue (router/->EventQueue :idle interop/empty-queue {} registry)
-        subs-cache  (subs/->SubscriptionCache (atom {}))]
-    (frame/map->Frame
-     {:registry registry
-      :event-queue event-queue
-      :app-db re-frame.db/app-db
-      :subs-cache subs-cache
-      :default-interceptors [(cofx/inject-cofx registry :db) (fx/do-fx registry)]})))
-
-(def the-frame (make-frame))
+(def the-frame (frame/make-frame))
 
 (fx/register-built-in! the-frame)
 (cofx/register-built-in! the-frame)
@@ -144,7 +132,7 @@
 (defn purge-event-queue
   "Remove all events queued for processing"
   []
-  (router/purge re-frame.router/event-queue))
+  (router/purge (:event-queue the-frame)))
 
 ;; -- Event Processing Callbacks  ---------------------------------------------
 
