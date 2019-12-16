@@ -65,7 +65,7 @@
 (def dispatch (partial frame/dispatch default-frame))
 (def dispatch-sync (partial frame/dispatch-sync default-frame))
 
-(def reg-sub-raw [query-id handler-fn]
+(defn reg-sub-raw [query-id handler-fn]
   (frame/reg-sub-raw
    default-frame
    query-id
