@@ -365,7 +365,7 @@
   For further understanding, read `/docs`, and look at the detailed comments in
   /examples/todomvc/src/subs.cljs
   "
-  [{:keys [registry app-db] :as frame} query-id & args]
+  [{:keys [registry] :as frame} query-id & args]
   (let [computation-fn (last args)
         input-args     (butlast args)] ;; may be empty, or one signal fn, or pairs of  :<- / vector
     (reg/register-handler
