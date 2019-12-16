@@ -1,9 +1,11 @@
 (ns re-frame.interop
-  (:require [goog.async.nextTick]
-            [reagent.core]
-            [reagent.ratom]))
+  (:require [reagent.core]
+            [reagent.impl.batching]
+            [reagent.ratom]
+            [react :as react]
+            [react-dom :as react-dom]))
 
-(def next-tick goog.async.nextTick)
+(def next-tick reagent.impl.batching/do-before-flush)
 
 (def empty-queue #queue [])
 
@@ -56,3 +58,24 @@
            reagent.ratom/Track "tr"
            "other")
          (hash reactive-val))))
+
+;; Make reagent benefit from batched updates
+
+(def ^:dynamic *in-batch?* false)
+
+(defn batch-updates [f]
+  (react-dom/unstable_batchedUpdates
+   (fn []
+     (binding [*in-batch?* true]
+       (f)))))
+
+(let [flush-queues (.bind (.-flush-queues reagent.impl.batching/render-queue)
+                          reagent.impl.batching/render-queue)]
+  (set! (.-flush-queues reagent.impl.batching/render-queue)
+        #(batch-updates flush-queues)))
+
+(let [queue-render reagent.impl.batching/queue-render]
+  (set! reagent.impl.batching/queue-render (fn [^clj c]
+                                             (if *in-batch?*
+                                               (.forceUpdate c)
+                                               (queue-render c)))))
