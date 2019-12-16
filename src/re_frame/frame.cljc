@@ -1,4 +1,8 @@
 (ns re-frame.frame
+  "An instance of freerange's state.
+
+  A frame combines all of freerange's state in a single object, so it is
+  possible to have multiple, isolated instances. "
   (:require [re-frame.cofx :as cofx]
             [re-frame.events :as events]
             [re-frame.fx :as fx]
@@ -110,13 +114,50 @@
      id
      [default-interceptors interceptors (stdi/ctx-handler->interceptor handler)])))
 
-(defn make-frame [& [{:keys [registry app-db]}]]
-  (let [registry    (or registry (reg/make-registry))
-        app-db      (or app-db (interop/ratom {}))
-        frame       (map->Frame
-                     {:registry             registry
-                      :app-db               app-db
-                      :subs-cache           (subs/->SubscriptionCache (atom {}))
-                      :default-interceptors [(cofx/inject-cofx registry :db) (fx/do-fx registry)]})
-        event-queue (router/->EventQueue :idle interop/empty-queue {} frame)]
-    (assoc frame :event-queue event-queue)))
+(defn make-frame
+  "Creates a new frame, which bundles the registry (subscriptions, event-handlers,
+  fx, cofx), app-db, subscription cache, default interceptors, and event queue.
+
+  :registry, :app-db, and :interceptors can be provided through an options map."
+  [& [{:keys [registry app-db interceptors]}]]
+  (let [registry             (or registry (reg/make-registry))
+        app-db               (or app-db (interop/ratom {}))
+        default-interceptors [(cofx/inject-cofx registry :db)
+                              (fx/do-fx registry)]
+        frame                (map->Frame
+                              {:registry             registry
+                               :app-db               app-db
+                               :subs-cache           (subs/->SubscriptionCache (atom {}))
+                               :default-interceptors (if interceptors
+                                                       (if (:replace (meta interceptors))
+                                                         interceptors
+                                                         (into default-interceptors interceptors))
+                                                       default-interceptors)
+                               :event-queue          (router/->EventQueue :idle interop/empty-queue {} nil)})]
+    (set! (.-frame (:event-queue frame)) frame)
+    frame))
+
+(defn make-restore-fn
+  "Checkpoints the state of re-frame and returns a function which, when
+  later called, will restore re-frame to that checkpointed state.
+
+  Checkpoint includes app-db, all registered handlers and all subscriptions."
+  ([frame]
+   (let [handlers   (-> frame :registry :kind->id->handler deref)
+         app-db     (-> frame :app-db deref)
+         subs-cache (-> frame :subs-cache deref)]
+     (fn []
+       ;; call `dispose!` on all current subscriptions which
+       ;; didn't originally exist.
+       (let [original-subs (-> subs-cache vals set)
+             current-subs  (-> frame :subs-cache deref vals)]
+         (doseq [sub current-subs
+                 :when (not (contains? original-subs sub))]
+           (interop/dispose! sub)))
+
+       ;; Reset the atoms
+       ;; We don't need to reset subs-cache, as disposing of the subs
+       ;; removes them from the cache anyway
+       (reset! (-> frame :registry :kind->id->handler) handlers)
+       (reset! (-> frame :app-db) app-db)
+       nil))))

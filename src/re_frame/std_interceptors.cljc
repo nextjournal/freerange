@@ -142,8 +142,7 @@
                      {:op-type   :event/handler
                       :operation (get-in context [:coeffects :event])}
                      (let [{:keys [event] :as coeffects} (:coeffects context)]
-                       (->> (handler-fn coeffects event)
-                            (assoc context :effects))))]
+                       (assoc context :effects (handler-fn coeffects event))))]
                (trace/merge-trace!
                 {:tags {:effects   (:effects new-context)
                         :coeffects (:coeffects context)}})

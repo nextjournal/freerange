@@ -1,12 +1,19 @@
 (ns re-frame.subs-test
-  (:require [cljs.test         :as test :refer-macros [is deftest testing]]
-            [reagent.ratom     :as r :refer-macros [reaction]]
+  (:require [cljs.test :as test :refer-macros [is deftest testing]]
+            [reagent.ratom :as r :refer-macros [reaction]]
             [re-frame.registry :as reg]
-            [re-frame.subs     :as subs]
-            [re-frame.db       :as db]
-            [re-frame.core     :as re-frame]))
+            [re-frame.subs :as subs]
+            [re-frame.frame :as frame]
+            [re-frame.core :as re-frame]))
 
 (def frame (atom nil))
+
+(test/use-fixtures :each {:before (fn []
+                                    (reset! frame (frame/make-frame))
+                                    (subs/clear-all-handlers! @frame))})
+
+(defn app-db []
+  (:app-db @frame))
 
 (defn reg-sub-raw
   "Associate a given `query id` with a given subscription handler function `handler-fn`
@@ -16,12 +23,11 @@
   This is a low level, advanced function.  You should probably be using reg-sub
   instead."
   [query-id handler-fn]
-  (reg/register-handler (:registry @frame) subs/kind query-id handler-fn))
-
-
-(test/use-fixtures :each {:before (fn []
-                                    (reset! frame (re-frame/make-frame))
-                                    (subs/clear-all-handlers! @frame))})
+  (reg/register-handler (:registry @frame) subs/kind query-id (fn
+                                                                ([frame query-v]
+                                                                 (handler-fn (:app-db frame) query-v))
+                                                                ([frame query-v dyn-v]
+                                                                 (handler-fn (:app-db frame) query-v dyn-v)))))
 
 ;;=====test basic subscriptions  ======
 
@@ -31,8 +37,8 @@
    (fn [db [_]] (reaction (deref db))))
 
   (let [test-sub (subs/subscribe @frame [:test-sub])]
-    (is (= @db/app-db @test-sub))
-    (reset! db/app-db 1)
+    (is (= @(app-db) @test-sub))
+    (reset! (app-db) 1)
     (is (= 1 @test-sub))))
 
 (deftest test-chained-subs
@@ -52,9 +58,9 @@
        (reaction {:a @a :b @b}))))
 
   (let [test-sub (subs/subscribe @frame [:a-b-sub])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= {:a 1 :b 2} @test-sub))
-    (swap! db/app-db assoc :b 3)
+    (swap! (app-db) assoc :b 3)
     (is (= {:a 1 :b 3} @test-sub))))
 
 (deftest test-sub-parameters
@@ -63,7 +69,7 @@
    (fn [db [_ b]] (reaction [(:a @db) b])))
 
   (let [test-sub (subs/subscribe @frame [:test-sub :c])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= [1 :c] @test-sub))))
 
 
@@ -84,7 +90,7 @@
        (reaction {:a @a :b @b}))))
 
   (let [test-sub (subs/subscribe @frame [:a-b-sub :c])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= {:a [1 :c], :b [2 :c]} @test-sub))))
 
 (deftest test-nonexistent-sub
@@ -104,7 +110,7 @@
      (reaction @db)))
 
   (let [test-sub (subs/subscribe @frame [:side-effecting-handler])]
-    (reset! db/app-db :test)
+    (reset! (app-db) :test)
     (is (= :test @test-sub))
     (is (= @side-effect-atom 1))
     (subs/subscribe @frame [:side-effecting-handler])  ;; this should be handled by cache
@@ -117,19 +123,19 @@
 ;============== test clear-subscription-cache! ================
 
 (deftest test-clear-subscription-cache!
-  (re-frame/reg-sub
-   @registry
+  (frame/reg-sub
+   @frame
    :clear-subscription-cache!
-   (fn clear-subs-cache [db _] 1))
+   [(fn clear-subs-cache [db _] 1)])
 
   (testing "cold cache"
-    (is (nil? (subs/cache-lookup [:clear-subscription-cache!]))))
+    (is (nil? (subs/-cache-lookup (:subs-cache @frame) [:clear-subscription-cache!]))))
   (testing "cache miss"
-    (is (= 1 @(subs/subscribe [:clear-subscription-cache!])))
-    (is (some? (subs/cache-lookup [:clear-subscription-cache!]))))
+    (is (= 1 @(frame/subscribe @frame [:clear-subscription-cache!])))
+    (is (some? (subs/-cache-lookup (:subs-cache @frame) [:clear-subscription-cache!]))))
   (testing "clearing"
-    (subs/clear-subscription-cache!)
-    (is (nil? (subs/cache-lookup [:clear-subscription-cache!])))))
+    (subs/clear-subscription-cache! (:subs-cache @frame))
+    (is (nil? (subs/-cache-lookup (:subs-cache @frame) [:clear-subscription-cache!])))))
 
 ;============== test register-pure macros ================
 
@@ -140,8 +146,8 @@
    (fn [db [_]] db))
 
   (let [test-sub (subs/subscribe @frame [:test-sub])]
-    (is (= @db/app-db @test-sub))
-    (reset! db/app-db 1)
+    (is (= @(app-db) @test-sub))
+    (reset! (app-db) 1)
     (is (= 1 @test-sub))))
 
 (deftest test-reg-sub-macro-singleton
@@ -159,9 +165,9 @@
      {:a a}))
 
   (let [test-sub (subs/subscribe @frame [:a-b-sub])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= {:a 1} @test-sub))
-    (swap! db/app-db assoc :b 3)
+    (swap! (app-db) assoc :b 3)
     (is (= {:a 1} @test-sub))))
 
 (deftest test-reg-sub-macro-vector
@@ -185,9 +191,9 @@
      {:a a :b b}))
 
   (let [test-sub (subs/subscribe @frame [:a-b-sub])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= {:a 1 :b 2} @test-sub))
-    (swap! db/app-db assoc :b 3)
+    (swap! (app-db) assoc :b 3)
     (is (= {:a 1 :b 3} @test-sub))))
 
 (deftest test-reg-sub-macro-map
@@ -211,9 +217,9 @@
      {:a a :b b}))
 
   (let [test-sub (subs/subscribe @frame [:a-b-sub])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= {:a 1 :b 2} @test-sub))
-    (swap! db/app-db assoc :b 3)
+    (swap! (app-db) assoc :b 3)
     (is (= {:a 1 :b 3} @test-sub))))
 
 (deftest test-sub-macro-parameters
@@ -223,7 +229,7 @@
    (fn [db [_ b]] [(:a db) b]))
 
   (let [test-sub (subs/subscribe @frame [:test-sub :c])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= [1 :c] @test-sub))))
 
 (deftest test-sub-macros-chained-parameters
@@ -246,7 +252,7 @@
    (fn [[a b] [_ c]] {:a a :b b}))
 
   (let [test-sub (subs/subscribe @frame [:a-b-sub :c])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= {:a [1 :c] :b [2 :c]} @test-sub))))
 
 (deftest test-sub-macros-<-
@@ -263,7 +269,7 @@
    (fn [a [_]] {:a a}))
 
   (let [test-sub (subs/subscribe @frame [:a-b-sub])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= {:a 1} @test-sub))))
 
 (deftest test-sub-macros-chained-parameters-<-
@@ -286,7 +292,7 @@
    (fn [[a b] [_ c]] {:a a :b b}))
 
   (let [test-sub (subs/subscribe @frame [:a-b-sub :c])]
-    (reset! db/app-db {:a 1 :b 2})
+    (reset! (app-db) {:a 1 :b 2})
     (is (= {:a 1 :b 2} @test-sub) )))
 
 (deftest test-registering-subs-doesnt-create-subscription

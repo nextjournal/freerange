@@ -1,19 +1,15 @@
 (ns re-frame.core
-  (:require
-    [re-frame.events           :as events]
-    [re-frame.subs             :as subs]
-    [re-frame.frame            :as frame]
-    [re-frame.interop          :as interop]
-    [re-frame.fx               :as fx]
-    [re-frame.cofx             :as cofx]
-    [re-frame.router           :as router]
-    [re-frame.loggers          :as loggers]
-    [re-frame.registry         :as reg]
-    [re-frame.interceptor      :as interceptor]
-    [re-frame.std-interceptors :as std-interceptors :refer [db-handler->interceptor
-                                                            fx-handler->interceptor
-                                                            ctx-handler->interceptor]]
-    [clojure.set               :as set]))
+  (:require [re-frame.events :as events]
+            [re-frame.subs :as subs]
+            [re-frame.frame :as frame]
+            [re-frame.interop :as interop]
+            [re-frame.fx :as fx]
+            [re-frame.cofx :as cofx]
+            [re-frame.router :as router]
+            [re-frame.loggers :as loggers]
+            [re-frame.registry :as reg]
+            [re-frame.interceptor :as interceptor]
+            [re-frame.std-interceptors :as std-interceptors]))
 
 ;; -- API ---------------------------------------------------------------------
 ;;
@@ -118,26 +114,9 @@
   "Checkpoints the state of re-frame and returns a function which, when
   later called, will restore re-frame to that checkpointed state.
 
-  Checkpoint includes app-db, all registered handlers and all subscriptions.
-  "
+  Checkpoint includes app-db, all registered handlers and all subscriptions."
   []
-  (let [handlers   (-> default-frame :registry :kind->id->handler deref)
-        app-db     (-> default-frame :app-db deref)
-        subs-cache (-> default-frame :subs-cache deref)]
-    (fn []
-      ;; call `dispose!` on all current subscriptions which
-      ;; didn't originally exist.
-      (let [original-subs (-> subs-cache vals set)
-            current-subs  (-> default-frame :subs-cache deref vals set)]
-        (doseq [sub (set/difference current-subs original-subs)]
-          (interop/dispose! sub)))
-
-      ;; Reset the atoms
-      ;; We don't need to reset subs-cache, as disposing of the subs
-      ;; removes them from the cache anyway
-      (reset! (-> default-frame :registry :kind->id->handler) handlers)
-      (reset! (-> default-frame :app-db) app-db)
-      nil)))
+  (frame/make-restore-fn default-frame))
 
 (defn purge-event-queue
   "Remove all events queued for processing"
@@ -159,8 +138,7 @@
      - libraries providing 'isomorphic javascript' rendering on  Nodejs or Nashorn.
 
   'id' is typically a keyword. Supplied at \"add time\" so it can subsequently
-  be used at \"remove time\" to get rid of the right callback.
-  "
+  be used at \"remove time\" to get rid of the right callback."
   ([f]
    (add-post-event-callback f f))   ;; use f as its own identifier
   ([id f]
@@ -170,16 +148,3 @@
 (defn remove-post-event-callback
   [id]
   (router/remove-post-event-callback (:event-queue default-frame) id))
-
-
-;; --  Deprecation ------------------------------------------------------------
-;; Assisting the v0.7.x ->  v0.8.x transition.
-(defn register-handler
-  [& args]
-  (console :warn  "re-frame:  \"register-handler\" has been renamed \"reg-event-db\" (look for registration of" (str (first args)) ")")
-  (apply reg-event-db args))
-
-(defn register-sub
-  [& args]
-  (console :warn  "re-frame:  \"register-sub\" is deprecated. Use \"reg-sub-raw\" (look for registration of" (str (first args)) ")")
-  (apply reg-sub-raw args))

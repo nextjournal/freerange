@@ -94,7 +94,7 @@
 (deftype EventQueue [#?(:cljs ^:mutable fsm-state               :clj ^:volatile-mutable fsm-state)
                      #?(:cljs ^:mutable queue                   :clj ^:volatile-mutable queue)
                      #?(:cljs ^:mutable post-event-callback-fns :clj ^:volatile-mutable post-event-callback-fns)
-                     frame]
+                     #?(:cljs ^:mutable frame                   :clj ^:volatile-mutable frame)]
   IEventQueue
 
   ;; -- API ------------------------------------------------------------------
@@ -243,6 +243,7 @@
   Usage:
      (dispatch event-queue [:order-pizza {:supreme 2 :meatlovers 1 :veg 1})"
   [event-queue event]
+  {:pre [event-queue]}
   (if (nil? event)
       (throw (ex-info "re-frame: you called \"dispatch\" without an event vector." {}))
       (push event-queue event))

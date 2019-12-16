@@ -138,9 +138,10 @@
    :id :do-fx
    :after (fn do-fx-after
             [context]
+            {:pre [(:frame context)]}
             (trace/with-trace
               {:op-type :event/do-fx}
               (doseq [[effect-key effect-value] (:effects context)]
-                (if-let [effect-fn (reg/get-handler registry kind effect-key true)]
+                (if-let [effect-fn (reg/get-handler registry kind effect-key)]
                   (effect-fn effect-value (:frame context))
                   (console :error "re-frame: no handler registered for effect:" effect-key ". Ignoring.")))))))

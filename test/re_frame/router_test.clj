@@ -1,38 +1,32 @@
 (ns re-frame.router-test
   (:require [clojure.test :refer :all]
-            [re-frame.core :as rf]
-            [re-frame.db :as db]))
+            [re-frame.frame :as frame]))
 
-(defn fixture-re-frame
-  [f]
-  (let [restore-re-frame (re-frame.core/make-restore-fn)]
-    (f)
-    (restore-re-frame)))
+(def frame (atom nil))
 
-(use-fixtures :each fixture-re-frame)
+(defn init-frame []
+  (reset! frame (doto (frame/make-frame)
+                  (frame/reg-event-db ::test
+                                      (fn [db [_ i]]
+                                        (update db ::test (fnil conj []) i)))
 
-(rf/reg-event-db
-  ::test
-  (fn [db [_ i]]
-    (update db ::test (fnil conj []) i)))
+                  (frame/reg-fx ::promise
+                                (fn [{:keys [p val]}]
+                                  (deliver p val)))
 
-(rf/reg-fx
- ::promise
- (fn [{:keys [p val]}]
-   (deliver p val)))
+                  (frame/reg-event-fx ::sentinel
+                                      (fn [cofx [_ p val]]
+                                        {::promise {:p p :val val}})))))
 
-(rf/reg-event-fx
- ::sentinel
- (fn [cofx [_ p val]]
-   {::promise {:p p :val val}}))
+(use-fixtures :each {:before init-frame})
 
 (deftest dispatching-race-condition-469-test
   ;; Checks for day8/re-frame#469
   (let [p (promise)]
     (is (nil? (dotimes [i 1000]
-                (rf/dispatch [::test i]))))
-    (is (nil? (rf/dispatch [::sentinel p ::done])))
+                (frame/dispatch @frame [::test i]))))
+    (is (nil? (frame/dispatch @frame [::sentinel p ::done])))
     (let [val (deref p 1000 ::timed-out)]
       (is (= ::done val)))
-    (is (= (::test @db/app-db)
+    (is (= (::test @(:app-db @frame))
            (range 1000)))))
