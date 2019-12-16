@@ -55,35 +55,45 @@
 ;; XXX move API functions up to this core level - to enable code completion and docs
 ;; XXX on figwheel reload, is there a way to not get the re-registration messages.
 
-;; Export API wrapping `the-frame` singleton ---
+;; Export API wrapping `default-frame` singleton ---
 
-(def the-frame (frame/make-frame))
+(def default-frame (frame/make-frame))
 
-(fx/register-built-in! the-frame)
-(cofx/register-built-in! the-frame)
+(fx/register-built-in! default-frame)
+(cofx/register-built-in! default-frame)
 
-(def dispatch (partial frame/dispatch the-frame))
-(def dispatch-sync (partial frame/dispatch-sync the-frame))
+(def dispatch (partial frame/dispatch default-frame))
+(def dispatch-sync (partial frame/dispatch-sync default-frame))
 
-(def reg-sub-raw (partial frame/reg-sub-raw the-frame))
+(def reg-sub-raw [query-id handler-fn]
+  (frame/reg-sub-raw
+   default-frame
+   query-id
+   (fn
+     ([frame query-v]
+      (handler-fn (:app-db frame) query-v))
+     ([frame query-v dyn-v]
+      (handler-fn (:app-db frame) query-v dyn-v)))))
+
 ;; some slight weirdness here because protocols don't support variadic functions
 (defn reg-sub [query-id & args]
-  (frame/reg-sub the-frame query-id args))
-(def subscribe (partial frame/subscribe the-frame))
-(def clear-sub (partial frame/clear-sub the-frame))
-(def clear-subscriptions-cache! (partial subs/-clear (:subs-cache the-frame)))
+  (frame/reg-sub default-frame query-id args))
 
-(def reg-fx (partial frame/reg-fx the-frame))
-(def clear-fx (partial frame/clear-fx the-frame))
+(def subscribe (partial frame/subscribe default-frame))
+(def clear-sub (partial frame/clear-sub default-frame))
+(def clear-subscriptions-cache! (partial subs/-clear (:subs-cache default-frame)))
 
-(def reg-cofx (partial frame/reg-cofx the-frame))
-(def inject-cofx (partial frame/inject-cofx the-frame))
-(def clear-cofx (partial frame/clear-cofx the-frame))
+(def reg-fx (partial frame/reg-fx default-frame))
+(def clear-fx (partial frame/clear-fx default-frame))
 
-(def reg-event-db (partial frame/reg-event-db the-frame))
-(def reg-event-fx (partial frame/reg-event-fx the-frame))
-(def reg-event-ctx (partial frame/reg-event-ctx the-frame))
-(def clear-event (partial frame/clear-event the-frame))
+(def reg-cofx (partial frame/reg-cofx default-frame))
+(def inject-cofx (partial frame/inject-cofx default-frame))
+(def clear-cofx (partial frame/clear-cofx default-frame))
+
+(def reg-event-db (partial frame/reg-event-db default-frame))
+(def reg-event-fx (partial frame/reg-event-fx default-frame))
+(def reg-event-ctx (partial frame/reg-event-ctx default-frame))
+(def clear-event (partial frame/clear-event default-frame))
 
 ;; --  logging ----------------------------------------------------------------
 ;; Internally, re-frame uses the logging functions: warn, log, error, group and groupEnd
@@ -111,28 +121,28 @@
   Checkpoint includes app-db, all registered handlers and all subscriptions.
   "
   []
-  (let [handlers   (-> the-frame :registry :kind->id->handler deref)
-        app-db     (-> the-frame :app-db deref)
-        subs-cache (-> the-frame :subs-cache deref)]
+  (let [handlers   (-> default-frame :registry :kind->id->handler deref)
+        app-db     (-> default-frame :app-db deref)
+        subs-cache (-> default-frame :subs-cache deref)]
     (fn []
       ;; call `dispose!` on all current subscriptions which
       ;; didn't originally exist.
       (let [original-subs (-> subs-cache vals set)
-            current-subs  (-> the-frame :subs-cache deref vals set)]
+            current-subs  (-> default-frame :subs-cache deref vals set)]
         (doseq [sub (set/difference current-subs original-subs)]
           (interop/dispose! sub)))
 
       ;; Reset the atoms
       ;; We don't need to reset subs-cache, as disposing of the subs
       ;; removes them from the cache anyway
-      (reset! (-> the-frame :registry :kind->id->handler) handlers)
-      (reset! (-> the-frame :app-db) app-db)
+      (reset! (-> default-frame :registry :kind->id->handler) handlers)
+      (reset! (-> default-frame :app-db) app-db)
       nil)))
 
 (defn purge-event-queue
   "Remove all events queued for processing"
   []
-  (router/purge (:event-queue the-frame)))
+  (router/purge (:event-queue default-frame)))
 
 ;; -- Event Processing Callbacks  ---------------------------------------------
 
@@ -154,12 +164,12 @@
   ([f]
    (add-post-event-callback f f))   ;; use f as its own identifier
   ([id f]
-   (router/add-post-event-callback (:event-queue the-frame) id f)))
+   (router/add-post-event-callback (:event-queue default-frame) id f)))
 
 
 (defn remove-post-event-callback
   [id]
-  (router/remove-post-event-callback (:event-queue the-frame) id))
+  (router/remove-post-event-callback (:event-queue default-frame) id))
 
 
 ;; --  Deprecation ------------------------------------------------------------

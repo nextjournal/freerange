@@ -6,7 +6,7 @@
             [re-frame.frame :as frame])
   (:require-macros [re-frame.context :refer [defc]]))
 
-(def frame-context (.createContext react r/the-frame))
+(def frame-context (.createContext react r/default-frame))
 
 (defn current-context
   "Gets the react Context for the current component, to be used in lifecycle
@@ -19,7 +19,7 @@
   "Get the current frame provided by the context, falling back to the default
   frame. Assumes that Component.contextType = frame-context."
   []
-  (or (current-context) r/the-frame))
+  (or (current-context) r/default-frame))
 
 (defn with-frame
   "Component that acts as a provider for the frame, so to run an isolated version
@@ -42,18 +42,3 @@
     `[~with-frame ~(frame/make-frame {:registry (:registry (current-frame))
                                       :app-db   app-db})
       ~@children]))
-
-(defn subscribe
-  "Version of subscribe that uses the frame from the current context. Components
-  that call this must have `:context-type frame-context`"
-  [& args]
-  (apply frame/subscribe (current-frame) args))
-
-(defn dispatchf
-  "Version of dispatch that uses the frame from the current context. Components
-  that call this must have `:context-type frame-context`. Returns a zero-arg
-  function that does the actual dispatch."
-  [& args]
-  (let [frame (current-frame)]
-    (fn []
-      (apply frame/dispatch frame args))))
