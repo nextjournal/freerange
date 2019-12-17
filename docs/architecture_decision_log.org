@@ -1,0 +1,193 @@
+#+TITLE: Freerange: Architecture Decision Log
+
+For information on ADRs (Architecture Decision Records) see [[http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions][Documenting
+Architecture Decisions]] by Michael Nygard.
+
+* 001: Freerange is a fork of re-frame
+- Date: 2019-12-17
+- Status: ACCEPTED
+
+** Context
+
+Re-frame is a stable and established project that is working well for many. This
+means significant changes should be avoided, or at a minimum considered very
+carefully.
+
+At the same time re-frame has reached a local maximum, where further
+improvements have become hard without changing the existing APIs. In the spirit
+of [Spec-ulation](https://www.youtube.com/watch?v=oyLBGkS5ICk) picking a new
+name allows us to move forward and try new things without having to worry about
+breaking existing consumers.
+
+This main driver for this is a desire to move away from re-frame's global state.
+
+** Decision
+
+We take re-frame as of b81eedaff684bfe63ad92ae4fb5f264a1f7e3677, on top of that
+apply the `frames` branch by Martin Klepsch which does most of the groundwork
+for removing global state, and continue from there.
+
+There is no longer a `re-frame.db/app-db`. Neither is there a global registry of
+subscription/event/fx/cofx handlers, a global subscription cache, or a global
+event queue.
+
+Instead of all things are bundled in a `re-frame.frame/Frame`, which represents
+a single re-frame/freerange "instance", and which is passed in a first argument
+to all API functions.
+
+A global `re-frame.core/default-frame` is provided as a fallback and
+convenience, see the next point.
+
+This fork is first and foremost developed for use by Nextjournal, although
+others may find it useful.
+
+** Consequences
+
+Code that references `re-frame.db/app-db` or other global state will have to be
+updated.
+
+It is now possible to have multiple re-frame instances on a page, to have a
+temporary instance for tests, or to have isolated state for devcards.
+
+* 002: The core API remains in principle compatible with re-frame
+- Date: 2019-12-17
+- Status: ACCEPTED
+
+** Context
+
+Having isolated instances is a worthy goal, but the main use case we are
+developing for is to be able to have isolated `app-db` instances in specific
+cases like tests and devcards. For general application development we still like
+the convenience of not having to specify the frame argument everywhere.
+
+We also want to minimize the impact on existing code bases.
+
+** Decision
+
+A default frame is provided in `re-frame.core/default-frame`, and all functions
+in `re-frame.core` use that implicitly. This means the API as exposed by
+`re-frame.core` is at this point essentially unchanged.
+
+We don't commit for core to always remain perfectly compatible with upstream,
+but we won't change function signatures or behavior without good reason.
+
+Other namespaces (`re-frame.subs`, `re-frame.cofx`, etc) do contain significant
+changes.
+
+** Consequences
+
+If an application only uses functions from `re-frame.core` then it can switch
+over without code changes. The main things that people might use outside of
+`core` are `re-frame.db/app-db` (use `(:app-db re-frame.core/default-frame)`)
+and `re-frame.subs/clear-subscription-cache!` (use
+`re-frame.core/clear-subscriptions-cache!`).
+
+* 003: The registry can be shared across frames
+- Date: 2019-12-17
+- Status: ACCEPTED
+
+** Context
+
+The registry is part of a frame, so each re-frame instance/frame has its own
+registry. However a common use case is to use all the defined event/subscription
+handlers, but have the app-db state isolated.
+
+** Decision
+
+`re-frame.frame/make-frame` can take an optional `:registry` key, so you can do this
+
+#+begin_src clojure
+(re-frame.frame/make-frame {:registry (:registry re-frame.core/default-registry)})
+#+end_src
+
+This gives you an isolated frame but reuses the existing handlers.
+
+** Consequences
+
+Registered subscription and event handlers need to use the frame that is
+supplied at the time `subscribe` and `dispatch` are called, rather then the
+frame they were registered in.
+
+* 004: We add a React Context based API for providing the current frame
+- Date: 2019-12-17
+- Status: ACCEPTED
+
+** Context
+
+The React Context API allows providing a value to all components inside a
+certain subtree of the rendering trees. What dynamic bindings are to the call
+stack, contexts are to the rendering stack.
+
+This means it allows us to provide a certain frame only for a subtree of the
+complete rendering tree.
+
+** Decision
+
+Add a `re-frame.context` namespace which provides components for binding the
+current frame or just the current app-db (inheriting the registry from the
+current frame), as well as a helper for accessing the current frame.
+
+** Consequences
+
+For the ~current-frame~ helper to function a component needs to be made aware of
+the frame context.
+
+#+begin_src clojure
+(def my-component
+  {:content-type re-frame.context/frame-context}
+  (fn []
+    (re-frame.frame/subscribe (re-frame.context/current-frame) [::some-sub])))
+#+end_src
+
+We may alleviate this annoyance somewhat with a `defcomponent` macro.
+
+* 005: Synchronize with Reagent
+- Date: 2019-12-17
+- Status: ACCEPTED
+
+** Context
+
+The re-frame event queue uses `goog.async.nextTick` to schedule its next
+iteration. Reagent has its own `next-tick` and render queue. These are not
+aligned which is not ideal for performance.
+
+** Decision
+
+Change ~re-frame.interop/next-tick~ to use
+~reagent.impl.batching/do-before-flush~ instead, so that re-frame's event queue
+runs before reagent's rendering queue.
+
+** Consequences
+
+This is a transparent change, no other changes are needed.
+
+* 006: Allow adding extra interceptors on a frame
+- Date: Date
+- Status: ACCEPTED
+
+** Context
+
+re-frame provides a way to add interceptors when registering event handlers, but
+it does not have an official mechanism for adding default interceptors that
+should be used for all events.
+
+** Decision
+
+Since the frame already includes default interceptors it is easy to add more
+there, we add an `:interceptors` key to the `re-frame.frame/make-frame` options
+map, which takes a sequence of interceptors. These are added to the default
+interceptors (the ones that handle fx and cofx), unless `{:replace true}` is set
+on the sequence's metadata.
+
+** Consequences
+
+Interceptors can be configured that are used by all event handlers for a given
+frame.
+
+* Template
+- Date: ...
+- Status: ACCEPTED / SUPERSEDED BY XXX
+
+** Context
+** Decision
+** Consequences
