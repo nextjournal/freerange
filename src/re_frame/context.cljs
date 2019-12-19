@@ -42,3 +42,9 @@
     `[~with-frame ~(frame/make-frame {:registry (:registry (current-frame))
                                       :app-db   app-db})
       ~@children]))
+
+(defn subscribe [& args]
+  (apply re-frame.frame/subscribe (current-frame) args))
+
+(defn dispatch [& args]
+  (apply re-frame.frame/dispatch (current-frame) args))
