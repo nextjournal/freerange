@@ -4,7 +4,7 @@
             [re-frame.core :as r]
             [re-frame.subs :as subs]
             [re-frame.frame :as frame])
-  (:require-macros [re-frame.context :refer [defc]]))
+  (:require-macros [re-frame.context :refer [defc import-with-frame]]))
 
 (def frame-context (.createContext react r/default-frame))
 
@@ -13,7 +13,10 @@
   hooks (e.g. render). Assumes that Component.contextType has been set."
   []
   (when-let [cmp (reagent.core/current-component)]
-    (.-context cmp)))
+    ;; When used without setting the right contextType we will get #js {} back
+    (when (not (object? (.-context cmp)))
+      (.-context cmp))))
+
 
 (defn current-frame
   "Get the current frame provided by the context, falling back to the default
@@ -26,8 +29,7 @@
   of your app, use.
 
       [with-frame (frame/make-frame)
-       [app]]
-  "
+       [app]]"
   [frame & children]
   (reagent.core/create-element
    (.-Provider frame-context)
@@ -43,8 +45,39 @@
                                       :app-db   app-db})
       ~@children]))
 
-(defn subscribe [& args]
-  (apply re-frame.frame/subscribe (current-frame) args))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Complete copy of the top-level re-frame API. If you are using the context
+;; approach then import re-frame.context instead of re-frame.core and things
+;; should generally Just Work™
 
-(defn dispatch [& args]
-  (apply re-frame.frame/dispatch (current-frame) args))
+(import-with-frame re-frame.frame/subscribe)
+(import-with-frame re-frame.frame/dispatch)
+(import-with-frame re-frame.frame/dispatch-sync)
+(import-with-frame re-frame.frame/clear-sub)
+(import-with-frame re-frame.frame/reg-fx)
+(import-with-frame re-frame.frame/reg-cofx)
+(import-with-frame re-frame.frame/inject-cofx)
+(import-with-frame re-frame.frame/clear-cofx)
+(import-with-frame re-frame.frame/reg-event-db)
+(import-with-frame re-frame.frame/reg-event-fx)
+(import-with-frame re-frame.frame/reg-event-ctx)
+(import-with-frame re-frame.frame/clear-event)
+
+;; A few special cases which we can't import directly
+
+(defn reg-sub-raw [query-id handler-fn]
+  (frame/reg-sub-raw
+   (current-frame)
+   query-id
+   (fn
+     ([frame query-v]
+      (handler-fn (:app-db frame) query-v))
+     ([frame query-v dyn-v]
+      (handler-fn (:app-db frame) query-v dyn-v)))))
+
+;; some slight weirdness here because protocols don't support variadic functions
+(defn reg-sub [query-id & args]
+  (frame/reg-sub (current-frame) query-id args))
+
+(defn clear-subscriptions-cache! [& args]
+  (apply subs/-clear (:subs-cache (current-frame)) args))
