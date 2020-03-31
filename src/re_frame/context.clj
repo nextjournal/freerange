@@ -2,16 +2,14 @@
   (:require [cljs.env]
             [cljs.analyzer]))
 
-(defmacro defc [name args1 args2 & body]
+(defmacro defc
+  "For definining Reagent components that honor the contextual frame. Like defn
+  but sets a :context-type metadata on the function, which Reagent will pick up
+  on, so that the correct React context is set for this component."
+  [name & fntail]
   `(def ~name
      ^{:context-type frame-context}
-     (fn ~args2
-       (let [frame# (^:cljs.analyzer/no-resolve re-frame.context/current-frame)
-             {:keys ~args1}
-             {:frame frame#
-              :<sub  (fn [& args#] (apply re-frame.frame/subscribe frame# args#))
-              :evt>  (fn [& args#] (apply re-frame.frame/dispatch frame# args#))}]
-         ~@body))))
+     (fn ~@fntail)))
 
 (defmacro import-with-frame [var-sym]
   `(defn
