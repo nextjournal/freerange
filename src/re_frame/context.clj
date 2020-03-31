@@ -7,9 +7,12 @@
   but sets a :context-type metadata on the function, which Reagent will pick up
   on, so that the correct React context is set for this component."
   [name & fntail]
-  `(def ~name
-     ^{:context-type frame-context}
-     (fn ~@fntail)))
+  (let [[doc fntail] (if (string? (first fntail))
+                       [(first fntail) (rest fntail)]
+                       [nil fntail])]
+    `(def ~(with-meta name (merge {:doc doc} (:meta &form)))
+       ^{:context-type frame-context}
+       (fn ~@fntail))))
 
 (defmacro import-with-frame [var-sym]
   `(defn

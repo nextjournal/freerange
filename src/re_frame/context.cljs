@@ -41,14 +41,13 @@
    #js {:value frame
         :children (reagent.core/as-element (into [:<>] children))}))
 
-(def with-app-db
+(defc with-app-db
   "Component that acts as a provider for the app-db, it takes the registry from
   the current frame, but uses the given atom for the app-db"
-  ^{:context-type frame-context}
-  (fn [app-db & children]
-    `[~with-frame ~(frame/make-frame {:registry (:registry (current-frame))
-                                      :app-db   app-db})
-      ~@children]))
+  [app-db & children]
+  `[~with-frame ~(frame/make-frame {:registry (:registry (current-frame))
+                                    :app-db   app-db})
+    ~@children])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Complete copy of the top-level re-frame API. If you are using the context
