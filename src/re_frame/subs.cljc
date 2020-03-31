@@ -124,6 +124,7 @@
   XXX
   "
   ([{:keys [registry app-db subs-cache] :as frame} query]
+   (log/trace :subscribe query)
    (trace/with-trace {:operation (first-in-vector query)
                       :op-type   :sub/create
                       :tags      {:query-v query}}
@@ -142,6 +143,7 @@
            (-cache-and-return subs-cache query [] (handler-fn frame query)))))))
 
   ([{:keys [registry app-db subs-cache] :as frame} query dynv]
+   (log/trace :subscribe {:query query :dynv dynv})
    (trace/with-trace {:operation (first-in-vector query)
                       :op-type   :sub/create
                       :tags      {:query-v query
@@ -390,6 +392,7 @@
                                                   :tags      {:query-v    query-vec
                                                               :reaction   @reaction-id}}
                                  (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec)]
+                                   (log/fine :updated {:query query-vec :result subscription})
                                    (trace/merge-trace! {:tags {:value subscription}})
                                    subscription))))]
 
@@ -407,6 +410,7 @@
                                                               :dyn-v     dyn-vec
                                                               :reaction  @reaction-id}}
                                  (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec dyn-vec)]
+                                   (log/fine :updated {:query query-vec :dyn-vec dyn-vec :result subscription})
                                    (trace/merge-trace! {:tags {:value subscription}})
                                    subscription))))]
 

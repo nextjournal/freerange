@@ -2,7 +2,8 @@
   (:require [re-frame.events :as ev]
             [re-frame.interop :refer [after-render empty-queue next-tick]]
             [re-frame.loggers :refer [console]]
-            [re-frame.trace :as trace :include-macros true]))
+            [re-frame.trace :as trace :include-macros true]
+            [lambdaisland.glogi :as log]))
 
 
 ;; -- Router Loop ------------------------------------------------------------
@@ -244,9 +245,10 @@
      (dispatch event-queue [:order-pizza {:supreme 2 :meatlovers 1 :veg 1})"
   [event-queue event]
   {:pre [event-queue]}
+  (log/trace :dispatch event)
   (if (nil? event)
-      (throw (ex-info "re-frame: you called \"dispatch\" without an event vector." {}))
-      (push event-queue event))
+    (throw (ex-info "re-frame: you called \"dispatch\" without an event vector." {}))
+    (push event-queue event))
   nil)                                           ;; Ensure nil return. See https://github.com/day8/re-frame/wiki/Beware-Returning-False
 
 
@@ -264,6 +266,8 @@
   Usage:
      (dispatch-sync event-queue registry [:sing :falsetto 634])"
   [frame event-v]
+  (log/trace :dispatch-sync event-v)
+
   (ev/handle frame event-v)
 
   ;; slightly ugly hack. Run the registered post event callbacks.
