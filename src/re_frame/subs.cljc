@@ -1,9 +1,9 @@
 (ns re-frame.subs
   (:require [re-frame.interop :refer [add-on-dispose! debug-enabled? make-reaction ratom? deref? dispose! reagent-id]]
-            [re-frame.loggers :refer [console]]
             [re-frame.utils :refer [first-in-vector]]
             [re-frame.registry :as reg]
-            [re-frame.trace :as trace :include-macros true]))
+            [re-frame.trace :as trace :include-macros true]
+            [lambdaisland.glogi :as log]))
 
 (def kind :sub)
 (assert (re-frame.registry/kinds kind))
@@ -36,7 +36,8 @@
     (doseq [[k rxn] @state]
       (dispose! rxn))
     (if (not-empty @state)
-      (console :warn "Subscription cache should be empty after clearing it.")))
+      (log/warn :subscription-cache-not-empty {:msg "Subscription cache should be empty after clearing it."
+                                               :cache @state})))
   (-cache-and-return [this query-v dyn-v r]
     (let [cache-key [query-v dyn-v]]
       ;; when this reaction is no longer being used, remove it from the cache
@@ -75,13 +76,14 @@
   (doseq [[k rxn] @subs-cache]
     (dispose! rxn))
   (if (not-empty @subs-cache)
-    (console :warn "Subscription cache should be empty after clearing it.")))
+    (log/warn :subscription-cache-not-empty {:msg "Subscription cache should be empty after clearing it."
+                                             :cache @subs-cache})))
 
 ;; -- subscribe -----------------------------------------------------
 
 (defn subscribe
   "Given a `query`, returns a Reagent `reaction` which, over
-  time, reactively delivers a stream of values. So in FRP-ish terms,
+  time, reactively delivers a stream of values. So in FRP-ish terms
   it returns a `Signal`.
 
   To obtain the returned Signal/Stream's current value, it must be `deref`ed.
@@ -136,7 +138,7 @@
          (trace/merge-trace! {:tags {:cached? false}})
          (if (nil? handler-fn)
            (do (trace/merge-trace! {:error true})
-               (console :error (str "re-frame: no subscription handler registered for: " query-id ". Returning a nil subscription.")))
+               (log/error :missing-subscription {:query-id query-id :msg (str "subscription not found in registry, returning a nil subscription.")}))
            (-cache-and-return subs-cache query [] (handler-fn frame query)))))))
 
   ([{:keys [registry app-db subs-cache] :as frame} query dynv]
@@ -154,15 +156,17 @@
          (trace/merge-trace! {:tags {:cached? false}})
          (when debug-enabled?
            (when-let [not-reactive (not-empty (remove ratom? dynv))]
-             (console :warn "re-frame: your subscription's dynamic parameters that don't implement IReactiveAtom:" not-reactive)))
+             (log/warn :not-reactive {:msg "re-frame: your subscription's dynamic parameters that don't implement IReactiveAtom:"
+                                      :not-reactive not-reactive
+                                      :dynv dynv})))
          (if (nil? handler-fn)
            (do (trace/merge-trace! {:error true})
-               (console :error (str "re-frame: no subscription handler registered for: " query-id ". Returning a nil subscription.")))
+               (log/error :missing-subscription {:query-id query-id :msg (str "subscription not found in registry, returning a nil subscription.")}))
            (let [dyn-vals (make-reaction (fn [] (mapv deref dynv)))
                  sub      (make-reaction (fn [] (handler-fn frame query @dyn-vals)))]
              ;; handler-fn returns a reaction which is then wrapped in the sub reaction
              ;; need to double deref it to get to the actual value.
-             ;; (console :log "Subscription created: " v dynv)
+             (log/finest :subscription-created {:query-v query :dyn-v dynv})
              (-cache-and-return subs-cache query dynv (make-reaction (fn [] @@sub))))))))))
 
 ;; -- reg-sub -----------------------------------------------------------------
@@ -199,7 +203,9 @@
       (sequential? signals) (map deref signals)
       (map? signals) (map-vals deref signals)
       (deref? signals) (deref signals)
-      :else (console :error "re-frame: in the reg-sub for" query-id ", the input-signals function returns:" signals))
+      :else (log/error :invalid-signal {:query-id query-id
+                                        :signals signals
+                                        :msg "Signals should be derefable, or a map or sequence of derefables."}))
     (trace/merge-trace! {:tags {:input-signals (doall (to-seq (map-signals reagent-id signals)))}})
     dereffed-signals))
 
@@ -214,13 +220,13 @@
       ;; a single `inputs` fn
       1 (let [f (first input-args)]
           (when-not (fn? f)
-            (console :error err-header "2nd argument expected to be an inputs function, got:" f))
+            (log/error :invalid-input {:query-id query-id :input-function f :msg "Input function is expected to be a function"}))
           f)
 
       ;; one sugar pair
       2 (let [[marker vec] input-args]
           (when-not (= :<- marker)
-            (console :error err-header "expected :<-, got:" marker))
+            (log/error :invalid-marker {:query-id query-id :expected :<- :got marker}))
           (fn inp-fn
             ([_] (subscribe frame (second input-args)))
             ([_ _] (subscribe frame (second input-args)))))
@@ -230,7 +236,7 @@
             markers (map first pairs)
             vecs    (map last pairs)]
         (when-not (and (every? #{:<-} markers) (every? vector? vecs))
-          (console :error err-header "expected pairs of :<- and vectors, got:" pairs))
+          (log/error :invalid-marker-pairs {:query-id query-id :msg "expected pairs of :<- and vectors" :got pairs}))
         (fn inp-fn
           ([_] (map (partial subscribe frame) vecs))
           ([_ _] (map (partial subscribe frame) vecs)))))))

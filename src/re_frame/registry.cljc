@@ -3,7 +3,7 @@
   with a `handler` (function).  This namespace contains the
   central registry of such associations."
   (:require [re-frame.interop :refer [debug-enabled?]]
-            [re-frame.loggers :refer [console]]))
+            [lambdaisland.glogi :as log]))
 
 
 ;; kinds of handlers
@@ -33,13 +33,14 @@
     (let [handler (get-handler this kind id)]
       (when debug-enabled?                                   ;; This is in a separate when so Closure DCE can run
         (when (and required? (nil? handler))                 ;; Otherwise you'd need to type hint the and with a ^boolean for DCE.
-          (console :error "re-frame: no " (str kind) " handler registered for:" id)))
+          (log/error :missing-handler {:kind kind :id id})))
       handler))
 
   (register-handler [this kind id handler-fn]
     (when debug-enabled?                                       ;; This is in a separate when so Closure DCE can run
-      (when (get-handler this kind id false)
-        (console :warn "re-frame: overwriting" (str kind) "handler for:" id)))   ;; allow it, but warn. Happens on figwheel reloads.
+      (if (get-handler this kind id false)
+        (log/warn :overwriting-handler {:kind kind :id id})
+        (log/trace :registered-handler {:kind kind :id id})))   ;; allow it, but warn. Happens on figwheel reloads.
     (swap! kind->id->handler assoc-in [kind id] handler-fn)
     handler-fn)    ;; note: returns the just registered handler
 
@@ -52,7 +53,7 @@
     (assert (kinds kind))
     (if (get-handler this kind id)
       (swap! kind->id->handler update-in [kind] dissoc id)
-      (console :warn "re-frame: can't clear" (str kind) "handler for" (str id ". Handler not found.")))))
+      (log/warn :msg (str  "re-frame: can't clear " kind " handler for "  id ". Handler not found.")))))
 
 (defn make-registry []
   ;; This atom contains a register of all handlers.

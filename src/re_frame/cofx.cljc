@@ -1,7 +1,7 @@
 (ns re-frame.cofx
   (:require [re-frame.interceptor :refer [->interceptor]]
             [re-frame.registry :as reg]
-            [re-frame.loggers :refer [console]]))
+            [lambdaisland.glogi :as log]))
 
 
 ;; -- Registration ------------------------------------------------------------
@@ -64,21 +64,21 @@
    'necessary resources' into the `:coeffects` (map) subsequently given
    to the event handler at call time."
   ([registry id]
-  (->interceptor
+   (->interceptor
     :id      :coeffects
     :before  (fn coeffects-before
                [context]
                (if-let [handler (reg/get-handler registry kind id)]
                  (update context :coeffects handler (:frame context))
-                 (console :error "No cofx handler registered for" id)))))
+                 (log/error :missing-cofx-handler {:id id})))))
   ([registry id value]
    (->interceptor
-     :id     :coeffects
-     :before  (fn coeffects-before
-                [context]
-                (if-let [handler (reg/get-handler registry kind id)]
-                  (update context :coeffects handler value (:frame context))
-                  (console :error "No cofx handler registered for" id))))))
+    :id     :coeffects
+    :before  (fn coeffects-before
+               [context]
+               (if-let [handler (reg/get-handler registry kind id)]
+                 (update context :coeffects handler value (:frame context))
+                 (log/error :missing-cofx-handler {:id id}))))))
 
 
 ;; -- Builtin CoEffects Handlers  ---------------------------------------------

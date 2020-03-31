@@ -5,7 +5,8 @@
             [re-frame.events :as events]
             [re-frame.registry :as reg]
             [re-frame.loggers :refer [console]]
-            [re-frame.trace :as trace :include-macros true]))
+            [re-frame.trace :as trace :include-macros true]
+            [lambdaisland.glogi :as log]))
 
 ;; -- Registration ------------------------------------------------------------
 
@@ -113,7 +114,7 @@
 ;; -- Builtin Effect Handlers  ------------------------------------------------
 
 (defn do-fx
-  "An interceptor whose `:after` actions the contents of `:effects`. As a result,
+  "An interceptor whose `:after` actions the contents of `:effects`. As a result
   this interceptor is Domino 3.
 
   This interceptor is silently added (by reg-event-db etc) to the front of
@@ -144,4 +145,4 @@
               (doseq [[effect-key effect-value] (:effects context)]
                 (if-let [effect-fn (reg/get-handler registry kind effect-key)]
                   (effect-fn effect-value (:frame context))
-                  (console :error "re-frame: no handler registered for effect:" effect-key ". Ignoring.")))))))
+                  (log/error :missing-fx-handler {:effect-key effect-key})))))))
