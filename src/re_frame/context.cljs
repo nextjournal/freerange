@@ -85,3 +85,16 @@
 
 (defn clear-subscriptions-cache! [& args]
   (apply subs/-clear (:subs-cache (current-frame)) args))
+
+
+(defn context-fns
+  "Returns subscribe/dispatch/dispatch-sync functions that are bound to the current frame. Use like this
+
+      (defc my-component []
+        (reagent/with-let [{:keys [subscribe dispatch]} (re-frame/context-fns)]
+          ,,,
+          )) "
+  []
+  {:subscribe (partial re-frame.frame/subscribe (current-frame))
+   :dispatch (partial re-frame.frame/dispatch (current-frame))
+   :dispatch-sync (partial re-frame.frame/dispatch-sync (current-frame))})
