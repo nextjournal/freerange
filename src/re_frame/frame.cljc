@@ -114,26 +114,31 @@
      id
      [default-interceptors interceptors (stdi/ctx-handler->interceptor handler)])))
 
+(def frame-id (atom 0))
+
 (defn make-frame
   "Creates a new frame, which bundles the registry (subscriptions, event-handlers,
   fx, cofx), app-db, subscription cache, default interceptors, and event queue.
 
   :registry, :app-db, and :interceptors can be provided through an options map."
-  [& [{:keys [registry app-db interceptors]}]]
+  [& [{:keys [registry app-db interceptors] :as extra-keys}]]
   (let [registry             (or registry (reg/make-registry))
         app-db               (or app-db (interop/ratom {}))
         default-interceptors [(cofx/inject-cofx registry :db)
                               (fx/do-fx registry)]
         frame                (map->Frame
-                              {:registry             registry
-                               :app-db               app-db
-                               :subs-cache           (subs/->SubscriptionCache (atom {}))
-                               :default-interceptors (if interceptors
-                                                       (if (:replace (meta interceptors))
-                                                         interceptors
-                                                         (into default-interceptors interceptors))
-                                                       default-interceptors)
-                               :event-queue          (router/->EventQueue :idle interop/empty-queue {} nil)})]
+                              (merge {:frame-id             (swap! frame-id inc)
+                                      :registry             registry
+                                      :app-db               app-db
+                                      :subs-cache           (subs/->SubscriptionCache (atom {}))
+                                      :default-interceptors (if interceptors
+                                                              (if (:replace (meta interceptors))
+                                                                interceptors
+                                                                (into default-interceptors interceptors))
+                                                              default-interceptors)
+                                      :event-queue          (router/->EventQueue :idle interop/empty-queue {} nil)}
+                                     (dissoc extra-keys :registry :app-db :interceptors)))]
+    ;; When events / fx fire, they get their frame from the event-queue
     (set! (.-frame (:event-queue frame)) frame)
     frame))
 

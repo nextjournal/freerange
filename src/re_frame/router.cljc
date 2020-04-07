@@ -245,7 +245,7 @@
      (dispatch event-queue [:order-pizza {:supreme 2 :meatlovers 1 :veg 1})"
   [event-queue event]
   {:pre [event-queue]}
-  (log/trace :dispatch event)
+  (log/trace :dispatch event :frame-id (:frame-id (.-frame event-queue)))
   (if (nil? event)
     (throw (ex-info "re-frame: you called \"dispatch\" without an event vector." {}))
     (push event-queue event))
@@ -266,7 +266,7 @@
   Usage:
      (dispatch-sync event-queue registry [:sing :falsetto 634])"
   [frame event-v]
-  (log/trace :dispatch-sync event-v)
+  (log/trace :dispatch-sync event-v :frame-id (:frame-id frame))
 
   (ev/handle frame event-v)
 

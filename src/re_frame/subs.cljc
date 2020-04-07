@@ -123,8 +123,8 @@
 
   XXX
   "
-  ([{:keys [registry app-db subs-cache] :as frame} query]
-   (log/trace :subscribe query)
+  ([{:keys [registry app-db subs-cache frame-id] :as frame} query]
+   (log/trace :subscribe query :frame-id frame-id)
    (trace/with-trace {:operation (first-in-vector query)
                       :op-type   :sub/create
                       :tags      {:query-v query}}
