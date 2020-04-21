@@ -18,8 +18,7 @@
   ([var-sym]
    `(import-with-frame ~(symbol (name var-sym)) ~var-sym))
   ([name var-sym]
-   `(defn
-      ~(symbol (name var-sym))
+   `(defn ~name
       ;; Attempt at propagating the doc string / arglists, for some reason CIDER
       ;; is not picking this up though.
       ~(select-keys (:meta (cljs.analyzer/resolve-var cljs.env/*compiler* var-sym))
