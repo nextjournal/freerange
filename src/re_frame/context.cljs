@@ -54,18 +54,18 @@
 ;; approach then import re-frame.context instead of re-frame.core and things
 ;; should generally Just Work™
 
-(import-with-frame re-frame.frame/subscribe)
-(import-with-frame re-frame.frame/dispatch)
-(import-with-frame re-frame.frame/dispatch-sync)
-(import-with-frame re-frame.frame/clear-sub)
-(import-with-frame re-frame.frame/reg-fx)
-(import-with-frame re-frame.frame/reg-cofx)
-(import-with-frame re-frame.frame/inject-cofx)
-(import-with-frame re-frame.frame/clear-cofx)
-(import-with-frame re-frame.frame/reg-event-db)
-(import-with-frame re-frame.frame/reg-event-fx)
-(import-with-frame re-frame.frame/reg-event-ctx)
-(import-with-frame re-frame.frame/clear-event)
+(import-with-frame subscribe re-frame.frame/subscribe)
+(import-with-frame dispatch re-frame.frame/dispatch)
+(import-with-frame dispatch-sync re-frame.frame/dispatch-sync)
+(import-with-frame clear-sub re-frame.frame/clear-sub)
+(import-with-frame reg-fx re-frame.frame/reg-fx)
+(import-with-frame reg-cofx re-frame.frame/reg-cofx)
+(import-with-frame inject-cofx re-frame.frame/inject-cofx)
+(import-with-frame clear-cofx re-frame.frame/clear-cofx)
+(import-with-frame reg-event-db re-frame.frame/reg-event-db)
+(import-with-frame reg-event-fx re-frame.frame/reg-event-fx)
+(import-with-frame reg-event-ctx re-frame.frame/reg-event-ctx)
+(import-with-frame clear-event re-frame.frame/clear-event)
 
 ;; A few special cases which we can't import directly
 
