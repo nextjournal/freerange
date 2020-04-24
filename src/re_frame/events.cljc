@@ -1,10 +1,10 @@
 (ns re-frame.events
-  (:require [re-frame.utils :refer [first-in-vector]]
-            [re-frame.interop :refer [empty-queue debug-enabled?]]
-            [re-frame.registry :as reg]
-            [re-frame.loggers :refer [console]]
-            [re-frame.interceptor :as interceptor]
-            [re-frame.trace :as trace :include-macros true]))
+  (:require [re-frame.utils       :refer [first-in-vector]]
+            [re-frame.interop     :refer [empty-queue debug-enabled?]]
+            [re-frame.registry    :as reg]
+            [re-frame.loggers     :refer [console]]
+            [re-frame.interceptor :as  interceptor]
+            [re-frame.trace       :as trace :include-macros true]))
 
 
 (def kind :event)
