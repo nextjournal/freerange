@@ -392,7 +392,7 @@
                                                   :tags      {:query-v    query-vec
                                                               :reaction   @reaction-id}}
                                  (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec)]
-                                   (log/fine :updated {:query query-vec :result subscription})
+                                   (log/finest :updated {:query query-vec :result subscription})
                                    (trace/merge-trace! {:tags {:value subscription}})
                                    subscription))))]
 
@@ -410,7 +410,7 @@
                                                               :dyn-v     dyn-vec
                                                               :reaction  @reaction-id}}
                                  (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec dyn-vec)]
-                                   (log/fine :updated {:query query-vec :dyn-vec dyn-vec :result subscription})
+                                   (log/finest :updated {:query query-vec :dyn-vec dyn-vec :result subscription})
                                    (trace/merge-trace! {:tags {:value subscription}})
                                    subscription))))]
 
