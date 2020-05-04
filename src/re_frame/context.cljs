@@ -1,10 +1,11 @@
 (ns re-frame.context
-  (:require [reagent.core]
-            ["react" :as react]
+  (:require ["react" :as react]
+            [goog.object :as gobj]
+            [lambdaisland.glogi :as log]
             [re-frame.core :as r]
-            [re-frame.subs :as subs]
             [re-frame.frame :as frame]
-            [goog.object :as gobj])
+            [re-frame.subs :as subs]
+            [reagent.core])
   (:require-macros [re-frame.context :refer [defc import-with-frame]]))
 
 (def frame-context (.createContext react r/default-frame))
@@ -22,12 +23,16 @@
     (when (not (object? (.-context cmp)))
       (.-context cmp))))
 
+(def ^:dynamic *current-frame*)
+
 (defn current-frame
   "Get the current frame provided by the context, falling back to the default
   frame. Assumes that Component.contextType = frame-context."
   []
-  (or (current-context)
+  (or *current-frame*
+      (current-context)
       (gobj/get frame-context "_currentValue")))
+
 
 (defn with-frame
   "Component that acts as a provider for the frame, so to run an isolated version
