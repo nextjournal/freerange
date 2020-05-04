@@ -32,6 +32,10 @@
       (current-context)
       (gobj/get frame-context "_currentValue")))
 
+(defn bound-frame []
+  (or registry/*current-frame*
+      (current-context)
+      (throw (js/Error. "No frame bound"))))
 
 (defn with-frame
   "Component that acts as a provider for the frame, so to run an isolated version
