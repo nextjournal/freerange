@@ -65,11 +65,8 @@
   (frame/reg-sub-raw
    default-frame
    query-id
-   (fn
-     ([frame query-v]
-      (handler-fn (:app-db frame) query-v))
-     ([frame query-v dyn-v]
-      (handler-fn (:app-db frame) query-v dyn-v)))))
+   (fn [frame query-v]
+     (handler-fn (:app-db frame) query-v))))
 
 ;; some slight weirdness here because protocols don't support variadic functions
 (defn reg-sub [query-id & args]

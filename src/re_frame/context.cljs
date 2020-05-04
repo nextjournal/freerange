@@ -4,6 +4,7 @@
             [lambdaisland.glogi :as log]
             [re-frame.core :as r]
             [re-frame.frame :as frame]
+            [re-frame.registry :as registry]
             [re-frame.subs :as subs]
             [reagent.core])
   (:require-macros [re-frame.context :refer [defc import-with-frame]]))
@@ -23,13 +24,11 @@
     (when (not (object? (.-context cmp)))
       (.-context cmp))))
 
-(def ^:dynamic *current-frame*)
-
 (defn current-frame
   "Get the current frame provided by the context, falling back to the default
   frame. Assumes that Component.contextType = frame-context."
   []
-  (or *current-frame*
+  (or registry/*current-frame*
       (current-context)
       (gobj/get frame-context "_currentValue")))
 
@@ -78,11 +77,8 @@
   (frame/reg-sub-raw
    (current-frame)
    query-id
-   (fn
-     ([frame query-v]
-      (handler-fn (:app-db frame) query-v))
-     ([frame query-v dyn-v]
-      (handler-fn (:app-db frame) query-v dyn-v)))))
+   (fn [frame query-v]
+     (handler-fn (:app-db frame) query-v))))
 
 ;; some slight weirdness here because protocols don't support variadic functions
 (defn reg-sub [query-id & args]
@@ -103,3 +99,9 @@
   {:subscribe (partial re-frame.frame/subscribe (current-frame))
    :dispatch (partial re-frame.frame/dispatch (current-frame))
    :dispatch-sync (partial re-frame.frame/dispatch-sync (current-frame))})
+
+(defn bind-fn [f]
+  (let [frame (current-frame)]
+     (fn [& args]
+       (binding [registry/*current-frame* frame]
+         (apply f args)))))
