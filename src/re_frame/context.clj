@@ -1,4 +1,5 @@
 (ns re-frame.context
+  (:refer-clojure :exclude [bound-fn])
   (:require [cljs.env]
             [cljs.analyzer]))
 
