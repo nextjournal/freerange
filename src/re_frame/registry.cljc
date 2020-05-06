@@ -5,6 +5,7 @@
   (:require [re-frame.interop :refer [debug-enabled?]]
             [lambdaisland.glogi :as log]))
 
+(def ^:dynamic *current-frame*)
 
 ;; kinds of handlers
 (def kinds #{:event :fx :cofx :sub})

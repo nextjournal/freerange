@@ -20,9 +20,7 @@
   ;; subs ----
   (reg-sub-raw [this query-id handler-fn])
   (reg-sub [this query-id args])
-  (subscribe
-    [this query-v]
-    [this query-v dyn-v])
+  (subscribe [this query-v])
   (clear-sub [this query-id])
   (clear-subscriptions-cache [this])
 
@@ -65,8 +63,6 @@
     (apply subs/reg-sub this query-id args))
   (subscribe [this query-v]
     (subs/subscribe this query-v))
-  (subscribe [this query-v dyn-v]
-    (subs/subscribe this query-v dyn-v))
   (clear-sub [this query-id]
     (reg/clear-handlers registry subs/kind query-id))
   (clear-subscriptions-cache [this]

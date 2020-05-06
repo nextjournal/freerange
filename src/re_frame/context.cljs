@@ -1,10 +1,12 @@
 (ns re-frame.context
-  (:require [reagent.core]
-            ["react" :as react]
+  (:require ["react" :as react]
+            [goog.object :as gobj]
+            [lambdaisland.glogi :as log]
             [re-frame.core :as r]
-            [re-frame.subs :as subs]
             [re-frame.frame :as frame]
-            [goog.object :as gobj])
+            [re-frame.registry :as registry]
+            [re-frame.subs :as subs]
+            [reagent.core])
   (:require-macros [re-frame.context :refer [defc import-with-frame]]))
 
 (def frame-context (.createContext react r/default-frame))
@@ -26,8 +28,14 @@
   "Get the current frame provided by the context, falling back to the default
   frame. Assumes that Component.contextType = frame-context."
   []
-  (or (current-context)
+  (or registry/*current-frame*
+      (current-context)
       (gobj/get frame-context "_currentValue")))
+
+(defn bound-frame []
+  (or registry/*current-frame*
+      (current-context)
+      (throw (js/Error. "No frame bound"))))
 
 (defn with-frame
   "Component that acts as a provider for the frame, so to run an isolated version
@@ -73,11 +81,8 @@
   (frame/reg-sub-raw
    (current-frame)
    query-id
-   (fn
-     ([frame query-v]
-      (handler-fn (:app-db frame) query-v))
-     ([frame query-v dyn-v]
-      (handler-fn (:app-db frame) query-v dyn-v)))))
+   (fn [frame query-v]
+     (handler-fn (:app-db frame) query-v))))
 
 ;; some slight weirdness here because protocols don't support variadic functions
 (defn reg-sub [query-id & args]
@@ -98,3 +103,9 @@
   {:subscribe (partial re-frame.frame/subscribe (current-frame))
    :dispatch (partial re-frame.frame/dispatch (current-frame))
    :dispatch-sync (partial re-frame.frame/dispatch-sync (current-frame))})
+
+(defn bind-fn [f]
+  (let [frame (current-frame)]
+     (fn [& args]
+       (binding [registry/*current-frame* frame]
+         (apply f args)))))

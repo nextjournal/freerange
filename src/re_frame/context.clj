@@ -1,4 +1,5 @@
 (ns re-frame.context
+  (:refer-clojure :exclude [bound-fn])
   (:require [cljs.env]
             [cljs.analyzer]))
 
@@ -25,3 +26,12 @@
                     [:doc :arglists])
       [& args#]
       (apply ~var-sym (current-frame) args#))))
+
+(defmacro bound-fn [& args]
+  (let [[name argv & body] (if (symbol? (first args))
+                             args
+                             (into [nil] args))]
+    `(let [frame# (~'re-frame.context/current-frame)]
+       (fn ~@(when name name) ~argv
+         (binding [~'re-frame.registry/*current-frame* frame#]
+           ~@body)))))
