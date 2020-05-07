@@ -40,7 +40,7 @@
   (register-handler [this kind id handler-fn]
     (when debug-enabled?                                       ;; This is in a separate when so Closure DCE can run
       (if (get-handler this kind id false)
-        (log/warn :overwriting-handler {:kind kind :id id})
+        (log/trace :overwriting-handler {:kind kind :id id})
         (log/trace :registered-handler {:kind kind :id id})))   ;; allow it, but warn. Happens on figwheel reloads.
     (swap! kind->id->handler assoc-in [kind id] handler-fn)
     handler-fn)    ;; note: returns the just registered handler
