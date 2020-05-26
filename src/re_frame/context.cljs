@@ -99,10 +99,11 @@
         (reagent/with-let [{:keys [subscribe dispatch]} (re-frame/context-fns)]
           ,,,
           )) "
-  []
-  {:subscribe (partial re-frame.frame/subscribe (current-frame))
-   :dispatch (partial re-frame.frame/dispatch (current-frame))
-   :dispatch-sync (partial re-frame.frame/dispatch-sync (current-frame))})
+  ([] (context-fns (current-frame)))
+  ([frame]
+   {:subscribe (partial re-frame.frame/subscribe frame)
+    :dispatch (partial re-frame.frame/dispatch frame)
+    :dispatch-sync (partial re-frame.frame/dispatch-sync frame)}))
 
 (defn bind-fn [f]
   (let [frame (current-frame)]
