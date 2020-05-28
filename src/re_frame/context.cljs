@@ -37,11 +37,11 @@
       (current-context)
       (throw (js/Error. "No frame bound"))))
 
-(defn with-frame
+(defn provide-frame
   "Component that acts as a provider for the frame, so to run an isolated version
   of your app, use.
 
-      [with-frame (frame/make-frame)
+      [provide-frame (frame/make-frame)
        [app]]"
   [frame & children]
   (reagent.core/create-element
@@ -49,12 +49,12 @@
    #js {:value frame
         :children (reagent.core/as-element (into [:<>] children))}))
 
-(defc with-app-db
+(defc provide-app-db
   "Component that acts as a provider for the app-db, it takes the registry from
   the current frame, but uses the given atom for the app-db"
   [app-db & children]
-  `[~with-frame ~(frame/make-frame {:registry (:registry (current-frame))
-                                    :app-db   app-db})
+  `[~provide-frame ~(frame/make-frame {:registry (:registry (current-frame))
+                                       :app-db   app-db})
     ~@children])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -99,10 +99,11 @@
         (reagent/with-let [{:keys [subscribe dispatch]} (re-frame/context-fns)]
           ,,,
           )) "
-  []
-  {:subscribe (partial re-frame.frame/subscribe (current-frame))
-   :dispatch (partial re-frame.frame/dispatch (current-frame))
-   :dispatch-sync (partial re-frame.frame/dispatch-sync (current-frame))})
+  ([] (context-fns (current-frame)))
+  ([frame]
+   {:subscribe (partial re-frame.frame/subscribe frame)
+    :dispatch (partial re-frame.frame/dispatch frame)
+    :dispatch-sync (partial re-frame.frame/dispatch-sync frame)}))
 
 (defn bind-fn [f]
   (let [frame (current-frame)]
