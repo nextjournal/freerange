@@ -15,9 +15,9 @@
        ^{:context-type frame-context}
        (fn ~@fntail))))
 
-(defmacro with-frame-binding [frame & body]
+(defmacro bind-frame [frame & body]
   `(binding [~'re-frame.registry/*current-frame* ~frame]
-     (assert (instance? ~'re-frame.frame/IFrame ~frame) "given frame is not of type `re-frame.frame/IFrame`")
+     (assert (satisfies? ~'re-frame.frame/IFrame ~frame) "given frame is not of type `re-frame.frame/IFrame`")
      ~@body))
 
 (defmacro import-with-frame
