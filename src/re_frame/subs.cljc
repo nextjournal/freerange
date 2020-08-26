@@ -141,7 +141,9 @@
     1 (let [f (first input-args)]
         (when-not (fn? f)
           (log/error :invalid-input {:query-id query-id :input-function f :msg "Input function is expected to be a function"}))
-        f)
+        (fn [& args]
+          (binding [reg/*current-frame* frame]
+            (apply f args))))
 
     ;; one sugar pair
     2 (let [[marker vec] input-args]
@@ -300,12 +302,11 @@
      query-id
      (fn subs-handler-fn
        [frame query-vec]
-       (binding [reg/*current-frame* frame]
-         (let [inputs-fn     (inputs-fn frame query-id input-args)
-               subscriptions (inputs-fn query-vec)]
-           (make-reaction
-            (fn []
-              (binding [reg/*current-frame* frame]
-                (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec)]
-                  (log/finest :updated {:query query-vec :result subscription})
-                  subscription))))))))))
+       (let [inputs-fn     (inputs-fn frame query-id input-args)
+             subscriptions (inputs-fn query-vec)]
+         (make-reaction
+           (fn []
+             (binding [reg/*current-frame* frame]
+               (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec)]
+                 (log/finest :updated {:query query-vec :result subscription})
+                 subscription)))))))))
