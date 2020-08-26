@@ -300,11 +300,12 @@
      query-id
      (fn subs-handler-fn
        [frame query-vec]
-       (let [inputs-fn     (inputs-fn frame query-id input-args)
-             subscriptions (inputs-fn query-vec)]
-         (make-reaction
-           (fn []
-             (binding [reg/*current-frame* frame]
-               (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec)]
-                 (log/finest :updated {:query query-vec :result subscription})
-                 subscription)))))))))
+       (binding [reg/*current-frame* frame]
+         (let [inputs-fn     (inputs-fn frame query-id input-args)
+               subscriptions (inputs-fn query-vec)]
+           (make-reaction
+            (fn []
+              (binding [reg/*current-frame* frame]
+                (let [subscription (computation-fn (deref-input-signals subscriptions query-id) query-vec)]
+                  (log/finest :updated {:query query-vec :result subscription})
+                  subscription))))))))))
