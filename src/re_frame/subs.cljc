@@ -141,7 +141,8 @@
     1 (let [f (first input-args)]
         (when-not (fn? f)
           (log/error :invalid-input {:query-id query-id :input-function f :msg "Input function is expected to be a function"}))
-        f)
+        #(binding [reg/*current-frame* frame]
+           (f %)))
 
     ;; one sugar pair
     2 (let [[marker vec] input-args]
