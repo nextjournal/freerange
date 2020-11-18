@@ -5,7 +5,7 @@
                                    :scope "provided"}
         org.clojure/clojurescript {:mvn/version "1.10.597"
                                    :scope "provided"}
-        reagent                   {:mvn/version "0.9.1"}
+        reagent/reagent           {:mvn/version "0.9.1"}
         net.cgrand/macrovich      {:mvn/version "0.2.1"}
         org.clojure/tools.logging {:mvn/version "0.4.1"}
         lambdaisland/glogi        {:mvn/version "1.0-60"}}}

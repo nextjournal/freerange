@@ -6,7 +6,7 @@
             [re-frame.registry :as reg]
             [re-frame.loggers :refer [console]]
             [re-frame.trace :as trace :include-macros true]
-            [lambdaisland.glogi :as log]))
+            [nextjournal.log :as log]))
 
 ;; -- Registration ------------------------------------------------------------
 
@@ -108,7 +108,7 @@
     (reg-fx
      :db
      (fn [value {:keys [app-db]}]
-       (if-not (identical? @app-db value)
+       (when-not (identical? @app-db value)
          (reset! app-db value))))))
 
 ;; -- Builtin Effect Handlers  ------------------------------------------------

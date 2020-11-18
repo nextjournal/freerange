@@ -1,7 +1,7 @@
 (ns re-frame.cofx
   (:require [re-frame.interceptor :refer [->interceptor]]
             [re-frame.registry :as reg]
-            [lambdaisland.glogi :as log]))
+            [nextjournal.log :as log]))
 
 
 ;; -- Registration ------------------------------------------------------------

@@ -1,7 +1,7 @@
 (ns re-frame.context
   (:require ["react" :as react]
             [goog.object :as gobj]
-            [lambdaisland.glogi :as log]
+            [nextjournal.log :as log]
             [re-frame.core :as r]
             [re-frame.frame :as frame]
             [re-frame.registry :as registry]

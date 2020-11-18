@@ -3,7 +3,7 @@
             [re-frame.interop :refer [after-render empty-queue next-tick]]
             [re-frame.loggers :refer [console]]
             [re-frame.trace :as trace :include-macros true]
-            [lambdaisland.glogi :as log]))
+            [nextjournal.log :as log]))
 
 
 ;; -- Router Loop ------------------------------------------------------------
@@ -105,7 +105,7 @@
 
   ;; register a callback function which will be called after each event is processed
   (add-post-event-callback [_ id callback-fn]
-    (if (contains? post-event-callback-fns id)
+    (when (contains? post-event-callback-fns id)
       (console :warn "re-frame: overwriting existing post event call back with id:" id))
     (->> (assoc post-event-callback-fns id callback-fn)
          (set! post-event-callback-fns)))

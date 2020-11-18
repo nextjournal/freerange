@@ -2,10 +2,9 @@
   (:require [cljs.test :refer-macros [is deftest testing]]
             [re-frame.interop :refer [ratom]]
             [re-frame.frame :as frame]
-            [re-frame.interceptor :refer [context get-coeffect assoc-effect assoc-coeffect get-effect update-coeffect update-effect]]
+            [re-frame.interceptor :as interceptor :refer [context get-coeffect assoc-effect assoc-coeffect get-effect update-coeffect update-effect]]
             [re-frame.std-interceptors :refer [debug trim-v path enrich after on-changes
-                                               db-handler->interceptor fx-handler->interceptor]]
-            [re-frame.interceptor :as interceptor]))
+                                               db-handler->interceptor fx-handler->interceptor]]))
 
 (enable-console-print!)
 
@@ -22,45 +21,45 @@
 
 (deftest test-one-level-path
   (let [db   {:showing true :another 1}
-        p1   (path [:showing])]   ;; a simple one level path
+        p1   (path [:showing])   ;; a simple one level path
+        b4 (-> (context (frame/make-frame) [] [])
+               (assoc-coeffect :db db)
+               ((:before p1)))         ;; before
+        a (-> b4
+              (assoc-effect :db false)
+              ((:after p1)))]         ;; after
 
-    (let [b4 (-> (context (frame/make-frame) [] [])
-                 (assoc-coeffect :db db)
-                 ((:before p1)))         ;; before
-          a (-> b4
-                (assoc-effect :db false)
-                ((:after p1)))]         ;; after
-
-      (is (= (get-coeffect b4 :db)      ;; test before
-             true))
-      (is (= (get-effect a :db)         ;; test after
-             {:showing false :another 1})))))
+       (is (= (get-coeffect b4 :db)      ;; test before
+              true))
+       (is (= (get-effect a :db)         ;; test after
+              {:showing false :another 1}))))
 
 
 (deftest test-two-level-path
-  (let [db  {:1 {:2 :target}}
-        p  (path [:1 :2])]    ;; a two level path
+  (let [db {:1 {:2 :target}}
+        p (path [:1 :2]) ;; a two level path
+        b4 (-> (context (frame/make-frame) [] [])
+               (assoc-coeffect :db db)
+               ((:before p)))] ;; before
 
-    (let [b4 (-> (context (frame/make-frame) [] [])
-                 (assoc-coeffect :db db)
-                 ((:before p))) ]          ;; before
 
-      (is (= (get-coeffect b4 :db)      ;; test before
-             :target))
 
-      ;; test #1
-      (is (= {:1 {:2 :4}}
-             (-> b4
-                 (assoc-effect :db :4)    ;; <-- db becomes :4
-                 ((:after p))
-                 (get-effect :db))))
+    (is (= (get-coeffect b4 :db) ;; test before
+           :target))
 
-      ;; test #2 - set db to nil
-      (is (= {:1 {:2 nil}}
-             (-> b4
-                 (assoc-effect :db nil)   ;; <-- db becomes nil
-                 ((:after p))
-                 (get-effect :db)))))))
+    ;; test #1
+    (is (= {:1 {:2 :4}}
+           (-> b4
+               (assoc-effect :db :4) ;; <-- db becomes :4
+               ((:after p))
+               (get-effect :db))))
+
+    ;; test #2 - set db to nil
+    (is (= {:1 {:2 nil}}
+           (-> b4
+               (assoc-effect :db nil) ;; <-- db becomes nil
+               ((:after p))
+               (get-effect :db))))))
 
 (deftest path-with-no-db-returned
   (let [path-interceptor (path :a)]

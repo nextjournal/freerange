@@ -256,7 +256,7 @@
     (is (= {:a [1 :c] :b [2 :c]} @test-sub))))
 
 (deftest test-sub-macros-<-
-  "test the syntactial sugar"
+  ;; test the syntactial sugar
   (subs/reg-sub
    @frame
    :a-sub
@@ -273,7 +273,7 @@
     (is (= {:a 1} @test-sub))))
 
 (deftest test-sub-macros-chained-parameters-<-
-  "test the syntactial sugar"
+  ;; test the syntactial sugar
   (subs/reg-sub
    @frame
    :a-sub

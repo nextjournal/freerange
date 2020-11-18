@@ -60,8 +60,8 @@
   "On JVM Clojure, use an atom to register `f` to be invoked when `dispose!` is
   invoked with `a-ratom`."
   [a-ratom f]
-  (do (swap! on-dispose-callbacks update a-ratom (fnil conj []) f)
-      nil))
+  (swap! on-dispose-callbacks update a-ratom (fnil conj []) f)
+  nil)
 
 (defn dispose!
   "On JVM Clojure, invoke all callbacks registered with `add-on-dispose!` for
