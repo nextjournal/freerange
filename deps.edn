@@ -1,9 +1,13 @@
 
 ;; Allows users of deps.edn to more conveniently fork / make PRs to re-frame
 
-{:deps {org.clojure/clojure       {:mvn/version "1.10.1"}
-        org.clojure/clojurescript {:mvn/version "1.10.844"}
-        reagent/reagent           {:mvn/version "0.9.1"}
-        net.cgrand/macrovich      {:mvn/version "0.2.1"}
+{:deps {net.cgrand/macrovich      {:mvn/version "0.2.1"}
         org.clojure/tools.logging {:mvn/version "0.4.1"}
-        lambdaisland/glogi        {:mvn/version "1.0.83"}}}
+        lambdaisland/glogi        {:mvn/version "1.0.83"}
+        reagent/reagent           {:mvn/version "0.9.1"
+                                   :exclusions [cljsjs/react cljsjs/react-dom cljsjs/react-dom-server]}}
+ :aliases
+ {:dev
+  {:extra-deps {org.clojure/clojure       {:mvn/version "1.10.1"}
+                org.clojure/clojurescript {:mvn/version "1.10.844"}
+                }}}}
