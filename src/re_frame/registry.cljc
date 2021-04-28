@@ -3,7 +3,7 @@
   with a `handler` (function).  This namespace contains the
   central registry of such associations."
   (:require [re-frame.interop :refer [debug-enabled?]]
-            [nextjournal.log :as log]))
+            [lambdaisland.glogi :as log]))
 
 (def ^:dynamic *current-frame*)
 

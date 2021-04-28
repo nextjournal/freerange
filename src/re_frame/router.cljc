@@ -3,7 +3,7 @@
             [re-frame.interop :refer [after-render empty-queue next-tick]]
             [re-frame.loggers :refer [console]]
             [re-frame.trace :as trace :include-macros true]
-            [nextjournal.log :as log]))
+            [lambdaisland.glogi :as log]))
 
 
 ;; -- Router Loop ------------------------------------------------------------

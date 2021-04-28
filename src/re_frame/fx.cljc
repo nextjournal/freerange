@@ -6,7 +6,7 @@
             [re-frame.registry :as reg]
             [re-frame.loggers :refer [console]]
             [re-frame.trace :as trace :include-macros true]
-            [nextjournal.log :as log]))
+            [lambdaisland.glogi :as log]))
 
 ;; -- Registration ------------------------------------------------------------
 

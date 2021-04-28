@@ -3,7 +3,7 @@
             [re-frame.utils :refer [first-in-vector]]
             [re-frame.registry :as reg]
             [re-frame.trace :as trace :include-macros true]
-            [nextjournal.log :as log]))
+            [lambdaisland.glogi :as log]))
 
 (def kind :sub)
 (assert (re-frame.registry/kinds kind))
