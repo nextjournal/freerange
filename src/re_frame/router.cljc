@@ -176,13 +176,16 @@
 
   (-process-1st-event-in-queue
     [this]
-    (let [event-v (peek queue)]
+    (let [event-v (peek queue)
+          measure-name (str "event:" (first event-v) )]
+      (.mark js/performance measure-name)
       (try
         (ev/handle frame event-v)
         (set! queue (pop queue))
         (-call-post-event-callbacks this event-v)
         (catch #?(:cljs :default :clj Exception) ex
-          (-fsm-trigger this :exception ex)))))
+          (-fsm-trigger this :exception ex)))
+      (.measure js/performance measure-name measure-name)))
 
   (-run-next-tick
     [this]
@@ -266,12 +269,15 @@
   Usage:
      (dispatch-sync event-queue registry [:sing :falsetto 634])"
   [frame event-v]
-  (log/trace :dispatch-sync event-v :frame-id (:frame-id frame))
+  (let [measure-name (str "sync: " (first event-v))]
+    (log/trace :dispatch-sync event-v :frame-id (:frame-id frame))
+    (.mark js/performance measure-name)
 
-  (ev/handle frame event-v)
+    (ev/handle frame event-v)
 
-  ;; slightly ugly hack. Run the registered post event callbacks.
-  (-call-post-event-callbacks (:event-queue frame) event-v)
+    ;; slightly ugly hack. Run the registered post event callbacks.
+    (-call-post-event-callbacks (:event-queue frame) event-v)
 
-  ;; Ensure nil return. See https://github.com/day8/re-frame/wiki/Beware-Returning-False
-  nil)
+    (.measure js/performance measure-name measure-name)
+    ;; Ensure nil return. See https://github.com/day8/re-frame/wiki/Beware-Returning-False
+    nil))
