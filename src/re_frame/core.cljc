@@ -1,5 +1,6 @@
 (ns re-frame.core
-  (:require [re-frame.events :as events]
+  (:require [lambdaisland.glogi :as glogi]
+            [re-frame.events :as events]
             [re-frame.subs :as subs]
             [re-frame.frame :as frame]
             [re-frame.interop :as interop]
@@ -10,6 +11,11 @@
             [re-frame.registry :as reg]
             [re-frame.interceptor :as interceptor]
             [re-frame.std-interceptors :as std-interceptors]))
+
+#?(:cljs
+   (glogi/set-levels
+    {:glogi/root :info}))
+
 
 ;; -- API ---------------------------------------------------------------------
 ;;
